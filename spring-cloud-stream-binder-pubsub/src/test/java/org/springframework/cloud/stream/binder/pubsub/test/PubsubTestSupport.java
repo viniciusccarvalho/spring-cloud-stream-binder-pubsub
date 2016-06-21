@@ -48,18 +48,20 @@ public class PubsubTestSupport extends AbstractExternalResourceTestSupport<Pubsu
 
 	@Override
 	protected Pubsub obtainResource() throws Exception {
-		resource = new Pubsub.Builder(Utils.getDefaultTransport(),
+
+		Pubsub pubsub = new Pubsub.Builder(Utils.getDefaultTransport(),
 				Utils.getDefaultJsonFactory(), new HttpRequestInitializer() {
 					@Override
 					public void initialize(HttpRequest httpRequest) throws IOException {
-						httpRequest.setConnectTimeout(1000);
-						httpRequest.setReadTimeout(1000);
+						httpRequest.setConnectTimeout(5000);
+						httpRequest.setReadTimeout(5000);
 					}
 				}).setApplicationName("spring-cloud-stream-binder-pubsub")
-				.setRootUrl("http://localhost:8612").build();
+				.setRootUrl("http://localhost:8283").build();
 		try {
-			resource.projects().topics().get("projects/fakeproject/topics/faketopic")
+			pubsub.projects().topics().get("projects/fakeproject/topics/faketopic")
 					.execute();
+			resource = pubsub;
 		}
 		catch (Exception e) {
 			if (GoogleJsonResponseException.class.isAssignableFrom(e.getClass())) {
@@ -69,7 +71,17 @@ public class PubsubTestSupport extends AbstractExternalResourceTestSupport<Pubsu
 				throw e;
 			}
 		}
-		return null;
+		return pubsub;
 	}
 
+	@Override
+	public Pubsub getResource() {
+		try {
+			return obtainResource();
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return  null;
+	}
 }

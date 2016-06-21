@@ -24,6 +24,15 @@ public class PubsubConsumerProperties {
 	private String prefix = "";
 	private Integer fetchSize = 1;
 	private Integer ackDeadlineSeconds = 10;
+	private boolean returnImmediately;
+
+	public boolean isReturnImmediately() {
+		return returnImmediately;
+	}
+
+	public void setReturnImmediately(boolean returnImmediately) {
+		this.returnImmediately = returnImmediately;
+	}
 
 	public String getPrefix() {
 		return prefix;

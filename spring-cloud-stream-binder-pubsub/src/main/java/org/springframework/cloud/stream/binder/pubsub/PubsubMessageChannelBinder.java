@@ -17,6 +17,7 @@
 package org.springframework.cloud.stream.binder.pubsub;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
@@ -94,36 +95,21 @@ public class PubsubMessageChannelBinder
 		Subscription subscription = createSubscription(
 				createSubscriptionName(name, group, partitionIndex), topic, properties);
 
-		PubSubMessageSource messageSource = new PubSubMessageSource(client, subscription);
-		messageSource.setFetchSize(properties.getExtension().getFetchSize());
-		messageSource.setBeanFactory(this.getBeanFactory());
-		messageSource.afterPropertiesSet();
+		PubSubMessageDrivenChannelAdapter adapter = new PubSubMessageDrivenChannelAdapter(client,subscription,properties);
+		adapter.setBeanFactory(getBeanFactory());
 
-		DirectChannel messageListChannel = new DirectChannel();
-		messageListChannel.setBeanFactory(this.getBeanFactory());
-		messageListChannel.setBeanName(name + ".messageList");
+		DirectChannel bridgeChannel = new DirectChannel();
+		bridgeChannel.setBeanFactory(getBeanFactory());
+		bridgeChannel.setBeanName(name+".bridge");
 
-		DirectChannel splittedChannel = new DirectChannel();
-		splittedChannel.setBeanFactory(this.getBeanFactory());
-		splittedChannel.setBeanName(name + ".splitedMessage");
-
-		SourcePollingChannelAdapter adapter = new SourcePollingChannelAdapter();
-		adapter.setSource(messageSource);
-		adapter.setOutputChannel(messageListChannel);
-		adapter.setBeanFactory(this.getBeanFactory());
-		adapter.setTrigger(new PeriodicTrigger(1000L, TimeUnit.MILLISECONDS));
+		adapter.setOutputChannel(bridgeChannel);
 		adapter.afterPropertiesSet();
 
 		ReceivingHandler convertingBridge = new ReceivingHandler();
 		convertingBridge.setOutputChannel(inputTarget);
 		convertingBridge.setBeanName(name + ".convert.bridge");
 		convertingBridge.afterPropertiesSet();
-
-		DefaultMessageSplitter splitter = new DefaultMessageSplitter();
-		messageListChannel.subscribe(splitter);
-		splitter.setBeanFactory(this.getBeanFactory());
-		splitter.setOutputChannel(splittedChannel);
-		splittedChannel.subscribe(convertingBridge);
+		bridgeChannel.subscribe(convertingBridge);
 
 		consumerBinding = new DefaultBinding<MessageChannel>(name, group, inputTarget,
 				adapter) {
@@ -251,7 +237,7 @@ public class PubsubMessageChannelBinder
 		boolean anonymousConsumer = !StringUtils.hasText(group);
 		StringBuffer buffer = new StringBuffer();
 		if (anonymousConsumer) {
-			buffer.append(groupedName(name, "anonymous"));
+			buffer.append(groupedName(name, UUID.randomUUID().toString()));
 		}
 		else {
 			buffer.append(groupedName(name, group));

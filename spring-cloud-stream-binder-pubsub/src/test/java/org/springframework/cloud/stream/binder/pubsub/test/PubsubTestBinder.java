@@ -16,6 +16,10 @@
 
 package org.springframework.cloud.stream.binder.pubsub.test;
 
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+
 import com.google.api.services.pubsub.Pubsub;
 
 import org.springframework.cloud.stream.binder.AbstractTestBinder;
@@ -38,6 +42,10 @@ public class PubsubTestBinder extends AbstractTestBinder<PubsubMessageChannelBin
 
 	private PubsubBinderConfigurationProperties configurationProperties;
 
+	private final Set<String> topics = new HashSet<String>();
+	private final Set<String> subscriptions = new HashSet<String>();
+	private Pubsub client;
+
 	public PubsubTestBinder(Pubsub pubsub, PubsubBinderConfigurationProperties configurationProperties) {
 		this.configurationProperties = configurationProperties;
 		GenericApplicationContext context = new GenericApplicationContext();
@@ -49,23 +57,33 @@ public class PubsubTestBinder extends AbstractTestBinder<PubsubMessageChannelBin
 		PubsubMessageChannelBinder binder = new PubsubMessageChannelBinder(configurationProperties, pubsub);
 		binder.setApplicationContext(context);
 		setBinder(binder);
-
+		this.client = pubsub;
 		this.setBinder(binder);
 	}
 
 	@Override
 	public Binding<MessageChannel> bindConsumer(String name, String group, MessageChannel moduleInputChannel, ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
+		this.topics.add(name);
+		this.subscriptions.add(name);
 		return super.bindConsumer(name, group, moduleInputChannel, properties);
 	}
 
 	@Override
 	public Binding<MessageChannel> bindProducer(String name, MessageChannel moduleOutputChannel, ExtendedProducerProperties<PubsubProducerProperties> properties) {
+		this.topics.add(name);
 		return super.bindProducer(name, moduleOutputChannel, properties);
 	}
 
 	@Override
 	public void cleanup() {
-
+		for(String topic: topics){
+			try {
+				client.projects().topics().delete("projects/test/topics/"+topic).execute();
+			}
+			catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 

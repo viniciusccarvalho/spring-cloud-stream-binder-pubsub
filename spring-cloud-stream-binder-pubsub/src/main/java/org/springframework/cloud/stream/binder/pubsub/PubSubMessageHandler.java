@@ -16,12 +16,18 @@
 
 package org.springframework.cloud.stream.binder.pubsub;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.PublishRequest;
+import com.google.api.services.pubsub.model.PublishResponse;
 import com.google.api.services.pubsub.model.PubsubMessage;
 
 import org.springframework.integration.handler.AbstractMessageHandler;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 
 /**
  * @author Vinicius Carvalho
@@ -39,7 +45,20 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 		String topicName = message.getHeaders().get(PubsubMessageChannelBinder.TOPIC_NAME).toString();
 		PublishRequest request = new PublishRequest();
 		PubsubMessage pubsubMessage = new PubsubMessage();
+		pubsubMessage.encodeData((byte[]) message.getPayload());
+		pubsubMessage.setAttributes(headersToAttributes(message.getHeaders()));
+		request.setMessages(Collections.singletonList(pubsubMessage));
 
-		client.projects().topics().publish(topicName, request);
+		PublishResponse publishResponse = client.projects().topics().publish(topicName, request).execute();
+		publishResponse.getMessageIds().forEach(id ->{System.out.println(id);});
 	}
+
+	private Map<String,String> headersToAttributes(MessageHeaders headers){
+		Map<String,String> attributes = new HashMap<>();
+		for(String key : headers.keySet()){
+			attributes.put(key,String.valueOf(headers.get(key)));
+		}
+		return attributes;
+	}
+
 }
