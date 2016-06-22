@@ -25,6 +25,8 @@ import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.PubsubMessage;
 import com.google.api.services.pubsub.model.Subscription;
 import com.google.api.services.pubsub.model.Topic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.cloud.stream.binder.AbstractBinder;
 import org.springframework.cloud.stream.binder.Binding;
@@ -100,14 +102,14 @@ public class PubsubMessageChannelBinder
 
 		DirectChannel bridgeChannel = new DirectChannel();
 		bridgeChannel.setBeanFactory(getBeanFactory());
-		bridgeChannel.setBeanName(name+".bridge");
+		bridgeChannel.setBeanName(subscription.getName()+".bridge");
 
 		adapter.setOutputChannel(bridgeChannel);
 		adapter.afterPropertiesSet();
 
 		ReceivingHandler convertingBridge = new ReceivingHandler();
 		convertingBridge.setOutputChannel(inputTarget);
-		convertingBridge.setBeanName(name + ".convert.bridge");
+		convertingBridge.setBeanName(subscription.getName() + ".convert.bridge");
 		convertingBridge.afterPropertiesSet();
 		bridgeChannel.subscribe(convertingBridge);
 
@@ -178,13 +180,14 @@ public class PubsubMessageChannelBinder
 				configurationProperties.getProjectName(), name);
 		Topic topic = null;
 		try {
+			logger.debug(String.format("Creating topic: %s",topicName));
 			topic = client.projects().topics().create(topicName, new Topic()).execute();
 		}
 		catch (IOException e) {
 			if (e instanceof GoogleJsonResponseException) {
 				GoogleJsonResponseException je = (GoogleJsonResponseException) e;
 				if (je.getStatusCode() == 409) {
-					logger.warn("Topic already exists");
+					logger.warn(String.format("Topic %s already exists",topicName));
 					topic = new Topic();
 					topic.setName(topicName);
 				}
@@ -213,6 +216,7 @@ public class PubsubMessageChannelBinder
 			configuration.setTopic(topic.getName());
 			configuration.setAckDeadlineSeconds(properties.getExtension()
 					.getAckDeadlineSeconds());
+			logger.debug(String.format("Creating subscription: %s linking to topic %s ",subscriptionName, topic.getName()));
 			subscription = client.projects().subscriptions()
 					.create(subscriptionName, configuration).execute();
 		}
@@ -220,7 +224,7 @@ public class PubsubMessageChannelBinder
 			if (e instanceof GoogleJsonResponseException) {
 				GoogleJsonResponseException je = (GoogleJsonResponseException) e;
 				if (je.getStatusCode() == 409) {
-					logger.warn("Subscription already exists");
+					logger.warn(String.format("Subscription %s already exists",subscriptionName));
 					subscription = new Subscription();
 					subscription.setName(subscriptionName);
 					subscription.setTopic(topic.getName());
@@ -272,6 +276,7 @@ public class PubsubMessageChannelBinder
 				partitionIndex = partitionHandler.determinePartition(message);
 			}
 			String topicName = createTopicName(name, properties.getExtension().getPrefix(), partitionIndex);
+			logger.debug(String.format("Sending message to topic %s at partition index: %d",topicName,partitionIndex));
 			messageToSend.put(TOPIC_NAME, String.format(TOPIC_NAME_PATTERN,
 					configurationProperties.getProjectName(), topicName));
 			this.delegate.handleMessage(messageToSend.toMessage(getMessageBuilderFactory()));
@@ -303,6 +308,7 @@ public class PubsubMessageChannelBinder
 	}
 
 	private final class ReceivingHandler extends AbstractReplyProducingMessageHandler {
+		private Logger logger = LoggerFactory.getLogger(ReceivingHandler.class);
 
 		private ReceivingHandler() {
 			super();
@@ -312,6 +318,7 @@ public class PubsubMessageChannelBinder
 		@Override
 		protected Object handleRequestMessage(Message<?> requestMessage) {
 			PubsubMessage message = (PubsubMessage) requestMessage.getPayload();
+			logger.debug("Received message id: {}",message.getMessageId());
 			return deserializePayloadIfNecessary(
 					getMessageBuilderFactory().withPayload(message.decodeData())
 							.copyHeaders(requestMessage.getHeaders()).build()).toMessage(

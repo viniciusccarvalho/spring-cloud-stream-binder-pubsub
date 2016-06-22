@@ -16,9 +16,15 @@
 
 package org.springframework.cloud.stream.binder.pubsub.test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.UUID;
+
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 
+import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.PartitionCapableBinderTests;
@@ -27,6 +33,11 @@ import org.springframework.cloud.stream.binder.pubsub.PubsubConsumerProperties;
 import org.springframework.cloud.stream.binder.pubsub.PubsubMessageChannelBinder;
 import org.springframework.cloud.stream.binder.pubsub.PubsubProducerProperties;
 import org.springframework.cloud.stream.binder.pubsub.config.PubsubBinderConfigurationProperties;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.integration.channel.QueueChannel;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.GenericMessage;
 
 /**
  * @author Vinicius Carvalho
@@ -44,6 +55,36 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 
 	@Rule
 	public PubsubTestSupport pubsubTestSupport = new PubsubTestSupport();
+
+	@Override
+	@Test
+	public void testOneRequiredGroup() throws Exception {
+		PubsubTestBinder binder = getBinder();
+		DirectChannel output = new DirectChannel();
+
+		ExtendedProducerProperties<PubsubProducerProperties> producerProperties = createProducerProperties();
+
+		String testDestination = "testDestination" + UUID.randomUUID().toString().replace("-", "");
+
+		producerProperties.setRequiredGroups("test1");
+		Binding<MessageChannel> producerBinding = binder.bindProducer(testDestination, output, producerProperties);
+
+
+		QueueChannel inbound1 = new QueueChannel();
+		Binding<MessageChannel> consumerBinding = binder.bindConsumer(testDestination, "test1", inbound1,
+				createConsumerProperties());
+
+		String testPayload = "foo-" + UUID.randomUUID().toString();
+		output.send(new GenericMessage<>(testPayload.getBytes()));
+
+
+		Message<?> receivedMessage1 = receive(inbound1);
+		assertThat(receivedMessage1).isNotNull();
+		assertThat(new String((byte[]) receivedMessage1.getPayload())).isEqualTo(testPayload);
+
+		producerBinding.unbind();
+		consumerBinding.unbind();
+	}
 
 	@Override
 	protected boolean usesExplicitRouting() {
@@ -69,6 +110,8 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 		}
 		return testBinder;
 	}
+
+
 
 	@Override
 	protected ExtendedConsumerProperties<PubsubConsumerProperties> createConsumerProperties() {

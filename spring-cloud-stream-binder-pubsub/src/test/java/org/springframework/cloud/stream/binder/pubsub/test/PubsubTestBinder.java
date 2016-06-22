@@ -31,6 +31,7 @@ import org.springframework.cloud.stream.binder.pubsub.PubsubMessageChannelBinder
 import org.springframework.cloud.stream.binder.pubsub.PubsubProducerProperties;
 import org.springframework.cloud.stream.binder.pubsub.config.PubsubBinderConfigurationProperties;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.integration.codec.kryo.PojoCodec;
 import org.springframework.integration.context.IntegrationContextUtils;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -56,6 +57,7 @@ public class PubsubTestBinder extends AbstractTestBinder<PubsubMessageChannelBin
 		context.refresh();
 		PubsubMessageChannelBinder binder = new PubsubMessageChannelBinder(configurationProperties, pubsub);
 		binder.setApplicationContext(context);
+		binder.setCodec(new PojoCodec());
 		setBinder(binder);
 		this.client = pubsub;
 		this.setBinder(binder);

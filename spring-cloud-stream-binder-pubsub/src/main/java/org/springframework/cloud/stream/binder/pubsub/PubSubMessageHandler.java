@@ -24,6 +24,8 @@ import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.PublishRequest;
 import com.google.api.services.pubsub.model.PublishResponse;
 import com.google.api.services.pubsub.model.PubsubMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.integration.handler.AbstractMessageHandler;
 import org.springframework.messaging.Message;
@@ -35,6 +37,7 @@ import org.springframework.messaging.MessageHeaders;
 public class PubSubMessageHandler extends AbstractMessageHandler {
 
 	private Pubsub client;
+	private Logger logger = LoggerFactory.getLogger(PubSubMessageHandler.class);
 
 	public PubSubMessageHandler(Pubsub client) {
 		this.client = client;
@@ -50,7 +53,9 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 		request.setMessages(Collections.singletonList(pubsubMessage));
 
 		PublishResponse publishResponse = client.projects().topics().publish(topicName, request).execute();
-		publishResponse.getMessageIds().forEach(id ->{System.out.println(id);});
+		if(logger.isDebugEnabled()){
+			logger.debug("Published message Id: {}",publishResponse.getMessageIds().get(0));
+		}
 	}
 
 	private Map<String,String> headersToAttributes(MessageHeaders headers){

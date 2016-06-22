@@ -50,10 +50,13 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 	private Subscription subscription;
 	private ExecutorService executorService;
 	private ExtendedConsumerProperties<PubsubConsumerProperties> properties;
+
+
 	public PubSubMessageDrivenChannelAdapter(Pubsub client, Subscription subscription, ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
 		this.client = client;
 		this.subscription = subscription;
 		this.properties = properties;
+		logger.debug(String.format("Creating MessageDrivenChannelAdapter for Subscription: %s",subscription.getName()));
 	}
 
 	@Override
@@ -79,7 +82,7 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 	protected void onInit() {
 		super.onInit();
 		if(executorService == null){
-			executorService = Executors.newCachedThreadPool();
+			executorService = Executors.newFixedThreadPool(2);
 		}
 		this.subscriptionWorker = new SubscriptionWorker(properties.getExtension().getFetchSize(), properties.getExtension().isReturnImmediately());
 	}
@@ -110,6 +113,7 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 				try {
 					PullResponse response = client.projects().subscriptions().pull(subscription.getName(),request).execute();
 					List<String> acks = new LinkedList<>();
+					logger.debug("Pulled {} messages from subscription {}",response.getReceivedMessages().size(),subscription.getName());
 					for(ReceivedMessage receivedMessage : response.getReceivedMessages()){
 						acks.add(receivedMessage.getAckId());
 						sendMessage(getMessageBuilderFactory().withPayload(receivedMessage.getMessage()).build());
