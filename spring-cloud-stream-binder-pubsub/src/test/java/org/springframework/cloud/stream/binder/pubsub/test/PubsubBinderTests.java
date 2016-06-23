@@ -18,11 +18,16 @@ package org.springframework.cloud.stream.binder.pubsub.test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.ListSubscriptionsResponse;
 import com.google.api.services.pubsub.model.ListTopicsResponse;
+import com.google.api.services.pubsub.model.PublishRequest;
+import com.google.api.services.pubsub.model.PubsubMessage;
 import com.google.api.services.pubsub.model.Subscription;
 import com.google.api.services.pubsub.model.Topic;
 import org.junit.After;
@@ -62,35 +67,35 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 	@Rule
 	public PubsubTestSupport pubsubTestSupport = new PubsubTestSupport();
 
-	@Override
-	@Test
-	public void testOneRequiredGroup() throws Exception {
-		PubsubTestBinder binder = getBinder();
-		DirectChannel output = new DirectChannel();
-
-		ExtendedProducerProperties<PubsubProducerProperties> producerProperties = createProducerProperties();
-
-		String testDestination = "testDestination" + UUID.randomUUID().toString().replace("-", "");
-
-		producerProperties.setRequiredGroups("test1");
-		Binding<MessageChannel> producerBinding = binder.bindProducer(testDestination, output, producerProperties);
-
-
-		QueueChannel inbound1 = new QueueChannel();
-		Binding<MessageChannel> consumerBinding = binder.bindConsumer(testDestination, "test1", inbound1,
-				createConsumerProperties());
-
-		String testPayload = "foo-" + UUID.randomUUID().toString();
-		output.send(new GenericMessage<>(testPayload.getBytes()));
-
-
-		Message<?> receivedMessage1 = receive(inbound1);
-		assertThat(receivedMessage1).isNotNull();
-		assertThat(new String((byte[]) receivedMessage1.getPayload())).isEqualTo(testPayload);
-
-		producerBinding.unbind();
-		consumerBinding.unbind();
-	}
+//	@Override
+//	@Test
+//	public void testOneRequiredGroup() throws Exception {
+//		PubsubTestBinder binder = getBinder();
+//		DirectChannel output = new DirectChannel();
+//
+//		ExtendedProducerProperties<PubsubProducerProperties> producerProperties = createProducerProperties();
+//
+//		String testDestination = "testDestination" + UUID.randomUUID().toString().replace("-", "");
+//
+//		producerProperties.setRequiredGroups("test1");
+//		Binding<MessageChannel> producerBinding = binder.bindProducer(testDestination, output, producerProperties);
+//
+//
+//		QueueChannel inbound1 = new QueueChannel();
+//		Binding<MessageChannel> consumerBinding = binder.bindConsumer(testDestination, "test1", inbound1,
+//				createConsumerProperties());
+//
+//		String testPayload = "foo-" + UUID.randomUUID().toString();
+//		output.send(new GenericMessage<>(testPayload.getBytes()));
+//
+//
+//		Message<?> receivedMessage1 = receive(inbound1);
+//		assertThat(receivedMessage1).isNotNull();
+//		assertThat(new String((byte[]) receivedMessage1.getPayload())).isEqualTo(testPayload);
+//
+//		producerBinding.unbind();
+//		consumerBinding.unbind();
+//	}
 
 	@Override
 	protected boolean usesExplicitRouting() {
@@ -119,6 +124,8 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 
 
 
+
+
 	@Override
 	protected ExtendedConsumerProperties<PubsubConsumerProperties> createConsumerProperties() {
 		return new ExtendedConsumerProperties<>(new PubsubConsumerProperties());
@@ -129,7 +136,6 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 		return new ExtendedProducerProperties<>(new PubsubProducerProperties());
 	}
 
-	@After
 	@Before
 	public void cleanup(){
 		Pubsub client = pubsubTestSupport.getResource();

@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.PublishRequest;
 import com.google.api.services.pubsub.model.PublishResponse;
@@ -38,9 +39,11 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 
 	private Pubsub client;
 	private Logger logger = LoggerFactory.getLogger(PubSubMessageHandler.class);
+	private ObjectMapper mapper;
 
-	public PubSubMessageHandler(Pubsub client) {
+	public PubSubMessageHandler(Pubsub client, ObjectMapper mapper) {
 		this.client = client;
+		this.mapper = mapper;
 	}
 
 	@Override
@@ -49,7 +52,8 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 		PublishRequest request = new PublishRequest();
 		PubsubMessage pubsubMessage = new PubsubMessage();
 		pubsubMessage.encodeData((byte[]) message.getPayload());
-		pubsubMessage.setAttributes(headersToAttributes(message.getHeaders()));
+		pubsubMessage.setAttributes(Collections.singletonMap(PubsubMessageChannelBinder.SCST_HEADERS,encodeHeaders(message.getHeaders())));
+
 		request.setMessages(Collections.singletonList(pubsubMessage));
 
 		PublishResponse publishResponse = client.projects().topics().publish(topicName, request).execute();
@@ -58,12 +62,12 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 		}
 	}
 
-	private Map<String,String> headersToAttributes(MessageHeaders headers){
-		Map<String,String> attributes = new HashMap<>();
+	private String encodeHeaders(MessageHeaders headers) throws Exception{
+		Map<String,Object> rawHeaders = new HashMap<>();
 		for(String key : headers.keySet()){
-			attributes.put(key,String.valueOf(headers.get(key)));
+			rawHeaders.put(key,headers.get(key));
 		}
-		return attributes;
+		return mapper.writeValueAsString(rawHeaders);
 	}
 
 }

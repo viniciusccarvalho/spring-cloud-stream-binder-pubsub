@@ -17,9 +17,12 @@
 package org.springframework.cloud.stream.binder.pubsub;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.PubsubMessage;
@@ -66,6 +69,10 @@ public class PubsubMessageChannelBinder
 
 	final String SUBSCRIPTION_NAME_PATTERN = "projects/%s/subscriptions/%s";
 
+	public static final String SCST_HEADERS = "SCST_HEADERS";
+
+	private ObjectMapper mapper = new ObjectMapper();
+
 	private PubsubExtendedBindingProperties extendedBindingProperties = new PubsubExtendedBindingProperties();
 
 	private PubsubBinderConfigurationProperties configurationProperties;
@@ -93,9 +100,9 @@ public class PubsubMessageChannelBinder
 				partitionIndex);
 		Topic topic = createTopic(client,topicName);
 		Subscription subscription = createSubscription(client,
-				createSubscriptionName(name, group, partitionIndex), topic, properties);
+				createSubscriptionName(name, group, partitionIndex), topic, properties.getExtension().getAckDeadlineSeconds());
 
-		PubSubMessageDrivenChannelAdapter adapter = new PubSubMessageDrivenChannelAdapter(client,subscription,properties);
+		PubSubMessageDrivenChannelAdapter adapter = new PubSubMessageDrivenChannelAdapter(client,subscription,properties,mapper);
 		adapter.setBeanFactory(getBeanFactory());
 
 		DirectChannel bridgeChannel = new DirectChannel();
@@ -130,14 +137,23 @@ public class PubsubMessageChannelBinder
 
 		boolean partitioned = properties.isPartitioned();
 		Pubsub client = createPubSubClient();
+		List<Topic> topics = new ArrayList<>();
 		if (partitioned) {
-			createTopics(client, name, properties);
+			topics.addAll(createTopics(client, name, properties));
 		}
 		else {
 			String topicName = createTopicName(name, properties.getExtension().getPrefix(), null);
-			createTopic(client,topicName);
+			topics.add(createTopic(client,topicName));
 		}
-		PubSubMessageHandler delegate = new PubSubMessageHandler(client);
+
+		for(int i=0;i<topics.size();i++){
+			for(String requiredGroup : properties.getRequiredGroups()){
+				Integer partitionIndex = (partitioned) ? i : null;
+				createSubscription(client,createSubscriptionName(name,requiredGroup,partitionIndex),topics.get(i), 10);
+			}
+		}
+
+		PubSubMessageHandler delegate = new PubSubMessageHandler(client,mapper);
 
 		MessageHandler handler = new SendingHandler(delegate, properties, name);
 		EventDrivenConsumer consumer = new EventDrivenConsumer((SubscribableChannel) outboundBindTarget, handler);
@@ -173,11 +189,13 @@ public class PubsubMessageChannelBinder
 		return configurationProperties;
 	}
 
-	private void createTopics(Pubsub client, String name, ExtendedProducerProperties<PubsubProducerProperties> properties) {
+	private List<Topic> createTopics(Pubsub client, String name, ExtendedProducerProperties<PubsubProducerProperties> properties) {
+		List<Topic> topics = new ArrayList<>();
 		for (int i = 0; i < properties.getPartitionCount(); i++) {
 			String topicName = createTopicName(name, properties.getExtension().getPrefix(), i);
-			createTopic(client,topicName);
+			topics.add(createTopic(client,topicName));
 		}
+		return topics;
 	}
 
 	private Topic createTopic(Pubsub client, String name) {
@@ -212,15 +230,14 @@ public class PubsubMessageChannelBinder
 	}
 
 	private Subscription createSubscription(Pubsub client, String name, Topic topic,
-			ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
+			Integer ackTimeout) {
 		String subscriptionName = String.format(SUBSCRIPTION_NAME_PATTERN,
 				configurationProperties.getProjectName(), name);
 		Subscription subscription = null;
 		try {
 			Subscription configuration = new Subscription();
 			configuration.setTopic(topic.getName());
-			configuration.setAckDeadlineSeconds(properties.getExtension()
-					.getAckDeadlineSeconds());
+			configuration.setAckDeadlineSeconds(ackTimeout);
 			logger.debug(String.format("Creating subscription: %s linking to topic %s ",subscriptionName, topic.getName()));
 			subscription = client.projects().subscriptions()
 					.create(subscriptionName, configuration).execute();
@@ -229,12 +246,11 @@ public class PubsubMessageChannelBinder
 			if (e instanceof GoogleJsonResponseException) {
 				GoogleJsonResponseException je = (GoogleJsonResponseException) e;
 				if (je.getStatusCode() == 409) {
-					logger.warn(String.format("Subscription %s already exists",subscriptionName));
+					logger.warn(String.format("Subscription %s already exists", subscriptionName));
 					subscription = new Subscription();
 					subscription.setName(subscriptionName);
 					subscription.setTopic(topic.getName());
-					subscription.setAckDeadlineSeconds(properties.getExtension()
-							.getAckDeadlineSeconds());
+					subscription.setAckDeadlineSeconds(ackTimeout);
 				}
 			}
 		}

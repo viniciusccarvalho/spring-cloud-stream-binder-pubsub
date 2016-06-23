@@ -68,6 +68,7 @@ public class PubsubTestSupport extends AbstractExternalResourceTestSupport<Pubsu
 						httpRequest.setConnectTimeout(15000);
 						httpRequest.setReadTimeout(15000);
 						if(credential != null){
+
 							httpRequest.setInterceptor(credential);
 						}
 						httpRequest.setUnsuccessfulResponseHandler(new HttpUnsuccessfulResponseHandler() {

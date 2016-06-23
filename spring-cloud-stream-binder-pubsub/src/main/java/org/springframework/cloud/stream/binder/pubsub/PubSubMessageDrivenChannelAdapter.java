@@ -18,8 +18,10 @@
 package org.springframework.cloud.stream.binder.pubsub;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.pubsub.model.AcknowledgeRequest;
 import com.google.api.services.pubsub.model.PullRequest;
@@ -50,10 +53,12 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 	private Subscription subscription;
 	private ExecutorService executorService;
 	private ExtendedConsumerProperties<PubsubConsumerProperties> properties;
+	private ObjectMapper mapper;
 
 
-	public PubSubMessageDrivenChannelAdapter(Pubsub client, Subscription subscription, ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
+	public PubSubMessageDrivenChannelAdapter(Pubsub client, Subscription subscription, ExtendedConsumerProperties<PubsubConsumerProperties> properties, ObjectMapper mapper) {
 		this.client = client;
+		this.mapper = mapper;
 		this.subscription = subscription;
 		this.properties = properties;
 		logger.debug(String.format("Creating MessageDrivenChannelAdapter for Subscription: %s",subscription.getName()));
@@ -121,7 +126,7 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 						if(receivedMessage.getMessage().getAttributes().size() > 4){
 							System.out.println("Hit the fan");
 						}
-						sendMessage(getMessageBuilderFactory().withPayload(receivedMessage.getMessage()).copyHeaders(receivedMessage.getMessage().getAttributes()).build());
+						sendMessage(getMessageBuilderFactory().withPayload(receivedMessage.getMessage()).copyHeaders(decodeAttributes(receivedMessage.getMessage().getAttributes())).build());
 					}
 					AcknowledgeRequest ackRequest = new AcknowledgeRequest().setAckIds(acks);
 					logger.debug("Sending Ack");
@@ -133,6 +138,21 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 					logger.warn("No message found for polling on subscription {} ", subscription.getName());
 				}
 			}
+		}
+
+
+		private Map<String,Object> decodeAttributes(Map<String,String> attributes){
+			Map<String,Object> headers = new HashMap<>();
+			if(attributes.get(PubsubMessageChannelBinder.SCST_HEADERS) != null){
+				try {
+					headers.putAll(mapper.readValue(attributes.get(PubsubMessageChannelBinder.SCST_HEADERS),Map.class));
+				}
+				catch (IOException e) {
+					logger.error("Could not deserialize SCST_HEADERS");
+				}
+
+			}
+			return headers;
 		}
 
 		@Override
