@@ -21,7 +21,14 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.google.api.services.pubsub.Pubsub;
+import com.google.api.services.pubsub.model.ListSubscriptionsResponse;
+import com.google.api.services.pubsub.model.ListTopicsResponse;
+import com.google.api.services.pubsub.model.Subscription;
+import com.google.api.services.pubsub.model.Topic;
+import org.junit.After;
+import org.junit.Before;
 
+import org.springframework.beans.factory.FactoryBean;
 import org.springframework.cloud.stream.binder.AbstractTestBinder;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -42,30 +49,48 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 public class PubsubTestBinder extends AbstractTestBinder<PubsubMessageChannelBinder, ExtendedConsumerProperties<PubsubConsumerProperties>, ExtendedProducerProperties<PubsubProducerProperties>> {
 
 	private PubsubBinderConfigurationProperties configurationProperties;
+	private PubsubTestSupport testSupport;
 
 	private final Set<String> topics = new HashSet<String>();
 	private final Set<String> subscriptions = new HashSet<String>();
-	private Pubsub client;
 
-	public PubsubTestBinder(Pubsub pubsub, PubsubBinderConfigurationProperties configurationProperties) {
+	public PubsubTestBinder(PubsubBinderConfigurationProperties configurationProperties, final PubsubTestSupport testSupport) {
 		this.configurationProperties = configurationProperties;
+		this.testSupport = testSupport;
 		GenericApplicationContext context = new GenericApplicationContext();
 		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-		scheduler.setPoolSize(1);
+		scheduler.setPoolSize(4);
 		scheduler.afterPropertiesSet();
 		context.getBeanFactory().registerSingleton(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME, scheduler);
+		context.getBeanFactory().registerSingleton("pubsub", new FactoryBean<Pubsub>() {
+
+			@Override
+			public Pubsub getObject() throws Exception {
+				return testSupport.getResource();
+			}
+
+			@Override
+			public Class<?> getObjectType() {
+				return Pubsub.class;
+			}
+
+			@Override
+			public boolean isSingleton() {
+				return false;
+			}
+		});
 		context.refresh();
-		PubsubMessageChannelBinder binder = new PubsubMessageChannelBinder(configurationProperties, pubsub);
+		PubsubMessageChannelBinder binder = new PubsubMessageChannelBinder(configurationProperties);
 		binder.setApplicationContext(context);
 		binder.setCodec(new PojoCodec());
 		setBinder(binder);
-		this.client = pubsub;
 		this.setBinder(binder);
 	}
 
 	@Override
 	public Binding<MessageChannel> bindConsumer(String name, String group, MessageChannel moduleInputChannel, ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
 		this.topics.add(name);
+
 		this.subscriptions.add(name);
 		return super.bindConsumer(name, group, moduleInputChannel, properties);
 	}
@@ -78,15 +103,11 @@ public class PubsubTestBinder extends AbstractTestBinder<PubsubMessageChannelBin
 
 	@Override
 	public void cleanup() {
-		for(String topic: topics){
-			try {
-				client.projects().topics().delete("projects/test/topics/"+topic).execute();
-			}
-			catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+
 	}
 
+	public PubsubBinderConfigurationProperties getConfigurationProperties() {
+		return configurationProperties;
+	}
 
 }

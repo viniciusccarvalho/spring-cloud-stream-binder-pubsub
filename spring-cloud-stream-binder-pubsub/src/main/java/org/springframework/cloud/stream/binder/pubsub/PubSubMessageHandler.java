@@ -54,7 +54,7 @@ public class PubSubMessageHandler extends AbstractMessageHandler {
 
 		PublishResponse publishResponse = client.projects().topics().publish(topicName, request).execute();
 		if(logger.isDebugEnabled()){
-			logger.debug("Published message Id: {}",publishResponse.getMessageIds().get(0));
+			logger.debug("Published message Id: {} to topic {} using client {}",publishResponse.getMessageIds().get(0), topicName, client);
 		}
 	}
 

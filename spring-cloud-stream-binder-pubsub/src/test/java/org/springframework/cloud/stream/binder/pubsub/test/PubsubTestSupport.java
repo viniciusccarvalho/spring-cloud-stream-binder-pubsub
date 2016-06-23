@@ -16,13 +16,22 @@
 
 package org.springframework.cloud.stream.binder.pubsub.test;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.googleapis.util.Utils;
+import com.google.api.client.http.HttpBackOffIOExceptionHandler;
+import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.HttpUnsuccessfulResponseHandler;
+import com.google.api.client.util.ExponentialBackOff;
+import com.google.api.client.util.Sleeper;
 import com.google.api.services.pubsub.Pubsub;
+import com.google.api.services.pubsub.PubsubScopes;
 
 import org.springframework.cloud.stream.test.junit.AbstractExternalResourceTestSupport;
 
@@ -48,16 +57,45 @@ public class PubsubTestSupport extends AbstractExternalResourceTestSupport<Pubsu
 
 	@Override
 	protected Pubsub obtainResource() throws Exception {
-
-		Pubsub pubsub = new Pubsub.Builder(Utils.getDefaultTransport(),
+		final GoogleCredential credential = credentials();
+		Pubsub pubsub =  null;
+		final HttpUnsuccessfulResponseHandler backoffHandler = new HttpBackOffUnsuccessfulResponseHandler(
+				new ExponentialBackOff()).setSleeper(Sleeper.DEFAULT);
+		Pubsub.Builder builder = new Pubsub.Builder(Utils.getDefaultTransport(),
 				Utils.getDefaultJsonFactory(), new HttpRequestInitializer() {
 					@Override
 					public void initialize(HttpRequest httpRequest) throws IOException {
-						httpRequest.setConnectTimeout(5000);
-						httpRequest.setReadTimeout(5000);
+						httpRequest.setConnectTimeout(15000);
+						httpRequest.setReadTimeout(15000);
+						if(credential != null){
+							httpRequest.setInterceptor(credential);
+						}
+						httpRequest.setUnsuccessfulResponseHandler(new HttpUnsuccessfulResponseHandler() {
+							@Override
+							public boolean handleResponse(HttpRequest request, HttpResponse response, boolean supportsRetry) throws IOException {
+								if(credential != null && credential.handleResponse(request,response,supportsRetry)){
+									return true;
+								}
+								else if (backoffHandler.handleResponse(request, response, supportsRetry)) {
+									// Otherwise, we defer to the judgement of
+									// our internal backoff handler.
+									logger.info("Retrying " + request.getUrl().toString());
+									return true;
+								}
+								return false;
+							}
+						});
+						httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(
+								new ExponentialBackOff()).setSleeper(Sleeper.DEFAULT));
+
 					}
-				}).setApplicationName("spring-cloud-stream-binder-pubsub")
-				.setRootUrl("http://localhost:8283").build();
+				})
+				.setApplicationName("spring-cloud-stream-binder-pubsub");
+		if(credential == null){
+			builder.setRootUrl("http://localhost:8283");
+		}
+		pubsub = builder.build();
+
 		try {
 			pubsub.projects().topics().get("projects/fakeproject/topics/faketopic")
 					.execute();
@@ -72,6 +110,23 @@ public class PubsubTestSupport extends AbstractExternalResourceTestSupport<Pubsu
 			}
 		}
 		return pubsub;
+	}
+
+	/**
+	 * If Google Credential's JSON is available as Environment variable use it
+	 * @return
+	 * @throws Exception
+	 */
+	private GoogleCredential credentials() throws Exception{
+		GoogleCredential credential = null;
+		String jsonCreds = System.getenv("GOOGLE_JSON_CREDENTIAL");
+		if(jsonCreds != null){
+			credential = GoogleCredential.fromStream(new ByteArrayInputStream(jsonCreds.getBytes()),Utils.getDefaultTransport(),Utils.getDefaultJsonFactory());
+			if (credential.createScopedRequired()) {
+				credential = credential.createScoped(PubsubScopes.all());
+			}
+		}
+		return credential;
 	}
 
 	@Override

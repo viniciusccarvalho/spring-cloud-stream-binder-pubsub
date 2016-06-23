@@ -30,7 +30,6 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 
-import org.springframework.cloud.stream.binder.pubsub.PubSubMessageSource;
 import org.springframework.messaging.Message;
 
 
@@ -43,21 +42,6 @@ public class PubSubMessageSourceTests {
 	@Rule
 	public PubsubTestSupport pubsubTestSupport = new PubsubTestSupport();
 
-	@Test
-	public void testReceive() throws Exception {
-		Pubsub client = pubsubTestSupport.getResource();
-		Topic testTopic = createTopic("testTopic");
-		Subscription subscription = createSubscription(testTopic, "testsub");
-		PubSubMessageSource messageSource = new PubSubMessageSource(client, subscription);
-		messageSource.setFetchSize(2);
-		messageSource.afterPropertiesSet();
-		sendMessage(testTopic, "foo".getBytes());
-		sendMessage(testTopic, "bar".getBytes());
-		Message<List<PubsubMessage>> message = messageSource.receive();
-		deleteSubscription(subscription);
-		deleteTopic(testTopic);
-		Assert.assertEquals(2, message.getPayload().size());
-	}
 
 	protected Topic createTopic(String name) throws Exception {
 		Pubsub client = pubsubTestSupport.getResource();

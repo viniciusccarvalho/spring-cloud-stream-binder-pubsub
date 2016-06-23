@@ -72,10 +72,8 @@ public class PubsubMessageChannelBinder
 
 	public static final String TOPIC_NAME = "TOPIC_NAME";
 
-	private Pubsub client;
-	public PubsubMessageChannelBinder(PubsubBinderConfigurationProperties configurationProperties, Pubsub client) {
+	public PubsubMessageChannelBinder(PubsubBinderConfigurationProperties configurationProperties) {
 		this.configurationProperties = configurationProperties;
-		this.client = client;
 		Assert.notNull(configurationProperties.getProjectName(),
 				"You must set the google cloud project name to use pub sub");
 	}
@@ -90,11 +88,11 @@ public class PubsubMessageChannelBinder
 		if (partitioned) {
 			partitionIndex = properties.getInstanceIndex();
 		}
-
+		Pubsub client = createPubSubClient();
 		String topicName = createTopicName(name, properties.getExtension().getPrefix(),
 				partitionIndex);
-		Topic topic = createTopic(topicName);
-		Subscription subscription = createSubscription(
+		Topic topic = createTopic(client,topicName);
+		Subscription subscription = createSubscription(client,
 				createSubscriptionName(name, group, partitionIndex), topic, properties);
 
 		PubSubMessageDrivenChannelAdapter adapter = new PubSubMessageDrivenChannelAdapter(client,subscription,properties);
@@ -131,14 +129,15 @@ public class PubsubMessageChannelBinder
 			ExtendedProducerProperties<PubsubProducerProperties> properties) {
 
 		boolean partitioned = properties.isPartitioned();
+		Pubsub client = createPubSubClient();
 		if (partitioned) {
-			createTopics(name, properties);
+			createTopics(client, name, properties);
 		}
 		else {
 			String topicName = createTopicName(name, properties.getExtension().getPrefix(), null);
-			createTopic(topicName);
+			createTopic(client,topicName);
 		}
-		PubSubMessageHandler delegate = new PubSubMessageHandler(this.client);
+		PubSubMessageHandler delegate = new PubSubMessageHandler(client);
 
 		MessageHandler handler = new SendingHandler(delegate, properties, name);
 		EventDrivenConsumer consumer = new EventDrivenConsumer((SubscribableChannel) outboundBindTarget, handler);
@@ -151,7 +150,9 @@ public class PubsubMessageChannelBinder
 		return producerBinding;
 	}
 
-
+	private Pubsub createPubSubClient(){
+		return getBeanFactory().getBean(Pubsub.class);
+	}
 
 	@Override
 	public PubsubConsumerProperties getExtendedConsumerProperties(String channelName) {
@@ -168,14 +169,18 @@ public class PubsubMessageChannelBinder
 		this.extendedBindingProperties = extendedBindingProperties;
 	}
 
-	private void createTopics(String name, ExtendedProducerProperties<PubsubProducerProperties> properties) {
+	public PubsubBinderConfigurationProperties getConfigurationProperties() {
+		return configurationProperties;
+	}
+
+	private void createTopics(Pubsub client, String name, ExtendedProducerProperties<PubsubProducerProperties> properties) {
 		for (int i = 0; i < properties.getPartitionCount(); i++) {
 			String topicName = createTopicName(name, properties.getExtension().getPrefix(), i);
-			createTopic(topicName);
+			createTopic(client,topicName);
 		}
 	}
 
-	private Topic createTopic(String name) {
+	private Topic createTopic(Pubsub client, String name) {
 		String topicName = String.format(TOPIC_NAME_PATTERN,
 				configurationProperties.getProjectName(), name);
 		Topic topic = null;
@@ -206,7 +211,7 @@ public class PubsubMessageChannelBinder
 		return buffer.toString();
 	}
 
-	private Subscription createSubscription(String name, Topic topic,
+	private Subscription createSubscription(Pubsub client, String name, Topic topic,
 			ExtendedConsumerProperties<PubsubConsumerProperties> properties) {
 		String subscriptionName = String.format(SUBSCRIPTION_NAME_PATTERN,
 				configurationProperties.getProjectName(), name);

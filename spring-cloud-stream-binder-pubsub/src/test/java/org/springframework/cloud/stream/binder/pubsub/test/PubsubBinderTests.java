@@ -20,6 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
 
+import com.google.api.services.pubsub.Pubsub;
+import com.google.api.services.pubsub.model.ListSubscriptionsResponse;
+import com.google.api.services.pubsub.model.ListTopicsResponse;
+import com.google.api.services.pubsub.model.Subscription;
+import com.google.api.services.pubsub.model.Topic;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,7 +56,7 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 
 	@Before
 	public void setup() {
-		this.timeoutMultiplier = 5.0;
+		this.timeoutMultiplier = 15.0;
 	}
 
 	@Rule
@@ -105,8 +111,8 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 	protected PubsubTestBinder getBinder() throws Exception {
 		if (testBinder == null) {
 			PubsubBinderConfigurationProperties properties = new PubsubBinderConfigurationProperties();
-			properties.setProjectName("test");
-			return new PubsubTestBinder(pubsubTestSupport.getResource(), properties);
+			properties.setProjectName("prefab-bounty-428");
+			return new PubsubTestBinder(properties,pubsubTestSupport);
 		}
 		return testBinder;
 	}
@@ -121,5 +127,29 @@ public class PubsubBinderTests extends PartitionCapableBinderTests<PubsubTestBin
 	@Override
 	protected ExtendedProducerProperties<PubsubProducerProperties> createProducerProperties() {
 		return new ExtendedProducerProperties<>(new PubsubProducerProperties());
+	}
+
+	@After
+	@Before
+	public void cleanup(){
+		Pubsub client = pubsubTestSupport.getResource();
+		try{
+			String project = "projects/"+getBinder().getConfigurationProperties().getProjectName();
+			ListSubscriptionsResponse listSubscriptionsResponse = client.projects().subscriptions().list(project).execute();
+			if(listSubscriptionsResponse != null && listSubscriptionsResponse.getSubscriptions() != null){
+				for(Subscription s : listSubscriptionsResponse.getSubscriptions()){
+					client.projects().subscriptions().delete(s.getName()).execute();
+				}
+			}
+			ListTopicsResponse listTopicsResponse = client.projects().topics().list(project).execute();
+			if(listTopicsResponse != null && listTopicsResponse.getTopics() != null){
+				for(Topic t : listTopicsResponse.getTopics()){
+					client.projects().topics().delete(t.getName()).execute();
+				}
+			}
+
+		}catch (Exception e){
+			e.printStackTrace();
+		}
 	}
 }

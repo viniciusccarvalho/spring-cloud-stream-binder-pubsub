@@ -54,7 +54,7 @@ public class PubsubServiceAutoConfiguration {
 	@Bean
 	public PubsubMessageChannelBinder channelBinder() throws Exception {
 		PubsubMessageChannelBinder binder = new PubsubMessageChannelBinder(
-				binderConfigurationProperties, pubsub);
+				binderConfigurationProperties);
 		binder.setExtendedBindingProperties(extendedBindingProperties);
 		return binder;
 	}

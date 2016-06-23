@@ -82,7 +82,7 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 	protected void onInit() {
 		super.onInit();
 		if(executorService == null){
-			executorService = Executors.newFixedThreadPool(2);
+			executorService = Executors.newFixedThreadPool(8);
 		}
 		this.subscriptionWorker = new SubscriptionWorker(properties.getExtension().getFetchSize(), properties.getExtension().isReturnImmediately());
 	}
@@ -110,20 +110,27 @@ public class PubSubMessageDrivenChannelAdapter extends MessageProducerSupport  {
 			request.setReturnImmediately(returnImmediately);
 			request.setMaxMessages(fetchSize);
 			while(running){
+				logger.debug("Polling using client: {}",client);
 				try {
 					PullResponse response = client.projects().subscriptions().pull(subscription.getName(),request).execute();
 					List<String> acks = new LinkedList<>();
 					logger.debug("Pulled {} messages from subscription {}",response.getReceivedMessages().size(),subscription.getName());
 					for(ReceivedMessage receivedMessage : response.getReceivedMessages()){
 						acks.add(receivedMessage.getAckId());
-						sendMessage(getMessageBuilderFactory().withPayload(receivedMessage.getMessage()).build());
+						logger.debug("Dispatching message {}", receivedMessage.getMessage().getMessageId());
+						if(receivedMessage.getMessage().getAttributes().size() > 4){
+							System.out.println("Hit the fan");
+						}
+						sendMessage(getMessageBuilderFactory().withPayload(receivedMessage.getMessage()).copyHeaders(receivedMessage.getMessage().getAttributes()).build());
 					}
 					AcknowledgeRequest ackRequest = new AcknowledgeRequest().setAckIds(acks);
+					logger.debug("Sending Ack");
 					client.projects().subscriptions()
 							.acknowledge(subscription.getName(), ackRequest).execute();
+					logger.debug("Messages have been ack");
 				}
 				catch (IOException e) {
-					logger.warn("No message found for polling");
+					logger.warn("No message found for polling on subscription {} ", subscription.getName());
 				}
 			}
 		}
