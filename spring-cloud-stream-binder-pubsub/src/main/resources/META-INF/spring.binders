@@ -1,2 +1,2 @@
 pubsub:\
-org.springframework.cloud.stream.binder.pubsub.config.PubsubServiceAutoConfiguration
+org.springframework.cloud.stream.binder.pubsub.config.PubSubServiceAutoConfiguration
