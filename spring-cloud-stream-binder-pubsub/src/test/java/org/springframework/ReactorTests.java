@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 import com.google.api.SystemParameter;
 import com.google.cloud.pubsub.TopicInfo;
@@ -51,6 +52,24 @@ public class ReactorTests {
 		Thread.sleep(2000L);
 	}
 
+
+	@Test
+	public void paralleSubscription() throws Exception {
+		CountDownLatch latch = new CountDownLatch(5);
+		Flux.fromArray(new Integer[] {1,2,3,4,5}).parallel(8).runOn(Schedulers.elastic()).subscribe(integer -> {
+			logger.info(""+integer);
+			try {
+				Thread.sleep(1000);
+				latch.countDown();
+			}
+			catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+		});
+
+		latch.await();
+	}
 
 	@Test
 	public void workQueueConsumerTest() throws Exception {

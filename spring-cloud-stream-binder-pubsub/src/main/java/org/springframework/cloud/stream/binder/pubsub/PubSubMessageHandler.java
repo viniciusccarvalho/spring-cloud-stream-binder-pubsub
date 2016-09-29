@@ -22,10 +22,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
-import org.springframework.cloud.stream.binder.PartitionHandler;
 import org.springframework.cloud.stream.binder.pubsub.support.GroupedMessage;
 import org.springframework.cloud.stream.binder.pubsub.support.PubSubBinder;
 import org.springframework.cloud.stream.binder.pubsub.support.PubSubMessage;
@@ -36,8 +37,7 @@ import org.springframework.messaging.MessageHeaders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.ByteArray;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.cloud.pubsub.TopicInfo;
 
 import reactor.core.Cancellation;
 import reactor.core.publisher.WorkQueueProcessor;
@@ -49,33 +49,31 @@ import reactor.core.scheduler.Schedulers;
 public class PubSubMessageHandler extends AbstractMessageHandler implements Lifecycle {
 
 	private PubSubResourceManager resourceManager;
-	private String name;
 	private ExtendedProducerProperties<PubSubProducerProperties> producerProperties;
 	private WorkQueueProcessor<PubSubMessage> processor;
 	private ObjectMapper mapper;
-	private PartitionHandler partitionHandler;
-	private Cancellation cancellation;
+	private Cancellation processorCancellation;
+	private List<TopicInfo> topics;
 
-	public PubSubMessageHandler(PubSubResourceManager resourceManager, String name,
+	private Logger logger = LoggerFactory.getLogger(PubSubMessageHandler.class);
+
+	public PubSubMessageHandler(PubSubResourceManager resourceManager,
 			ExtendedProducerProperties<PubSubProducerProperties> producerProperties,
-			PartitionHandler partitionHandler) {
-		this.name = name;
+			List<TopicInfo> topics) {
 		this.resourceManager = resourceManager;
 		this.producerProperties = producerProperties;
-		this.partitionHandler = partitionHandler;
 		this.mapper = new ObjectMapper();
 		this.processor = WorkQueueProcessor.share(true);
+		this.topics = topics;
+
 	}
 
 	@Override
 	protected void handleMessageInternal(Message<?> message) throws Exception {
-		Integer partitionIndex = null;
-		if (producerProperties.isPartitioned()) {
-			partitionIndex = partitionHandler.determinePartition(message);
-		}
-		String topic = resourceManager.createTopicName(name,
-				producerProperties.getExtension().getPrefix(), partitionIndex);
 		String encodedHeaders = encodeHeaders(message.getHeaders());
+		String topic = producerProperties.isPartitioned() ? topics
+				.get((Integer) message.getHeaders().get(BinderHeaders.PARTITION_HEADER))
+				.name() : topics.get(0).name();
 		PubSubMessage pubSubMessage = new PubSubMessage(
 				com.google.cloud.pubsub.Message
 						.builder(ByteArray.copyFrom((byte[]) message.getPayload()))
@@ -94,31 +92,20 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 
 	@Override
 	public void start() {
-		this.cancellation = processor.groupBy(PubSubMessage::getTopic)
+		this.processorCancellation = processor.groupBy(PubSubMessage::getTopic)
 				.flatMap(group -> group.map(pubSubMessage -> {
 					return pubSubMessage.getMessage();
 				}).buffer(1000, Duration.ofMillis(100)).map(messages -> {
 					return new GroupedMessage(group.key(), messages);
-				})).publishOn(Schedulers.elastic()).subscribe(groupedMessage -> {
-					Futures.addCallback(resourceManager.publishMessages(groupedMessage),
-							new FutureCallback<List<String>>() {
-								@Override
-								public void onSuccess(@Nullable List<String> result) {
-									//
-
-								}
-
-								@Override
-								public void onFailure(Throwable t) {
-
-								}
-							});
-				});
+				})).parallel(8).runOn(Schedulers.elastic()).doOnNext(groupedMessage -> {
+					logger.info("Dispatching messages");
+					resourceManager.publishMessages(groupedMessage);
+				}).sequential().publishOn(Schedulers.elastic()).subscribe();
 	}
 
 	@Override
 	public void stop() {
-
+		processorCancellation.dispose();
 	}
 
 	@Override

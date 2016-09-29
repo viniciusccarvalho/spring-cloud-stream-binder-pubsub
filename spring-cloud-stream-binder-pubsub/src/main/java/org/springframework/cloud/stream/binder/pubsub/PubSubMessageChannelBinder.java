@@ -16,8 +16,8 @@
  */
 package org.springframework.cloud.stream.binder.pubsub;
 
-import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -27,15 +27,15 @@ import org.springframework.integration.core.MessageProducer;
 import org.springframework.messaging.MessageHandler;
 
 import com.google.cloud.pubsub.Subscription;
+import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
 
 /**
  * @author Vinicius Carvalho
  */
 public class PubSubMessageChannelBinder extends
-		AbstractMessageChannelBinder<ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>, Subscription, Collection<TopicInfo>> {
+		AbstractMessageChannelBinder<ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>, Subscription, List<TopicInfo>> {
 
-	public static final String SCST_HEADERS = "SCST_HEADERS";
 
 	private PubSubBinderConfigurationProperties binderProperties;
 
@@ -54,39 +54,59 @@ public class PubSubMessageChannelBinder extends
 	}
 
 	@Override
-	protected Collection<TopicInfo> createProducerDestinationIfNecessary(String name,
+	protected List<TopicInfo> createProducerDestinationIfNecessary(String name,
 			ExtendedProducerProperties<PubSubProducerProperties> properties) {
 		Integer partitionIndex = null;
-		Collection<TopicInfo> topics = new LinkedList<>();
-		for (int i = 0; i < properties.getPartitionCount(); i++) {
-			if (properties.isPartitioned())
-				partitionIndex = i;
-			TopicInfo topic = resourceManager.declareTopic(name,
-					properties.getExtension().getPrefix(), partitionIndex);
-			topics.add(topic);
+		List<TopicInfo> topics = new LinkedList<>();
+
+		if (properties.isPartitioned()) {
+			for (int i = 0; i < properties.getPartitionCount(); i++) {
+				if (properties.isPartitioned())
+					partitionIndex = i;
+				TopicInfo topic = resourceManager.declareTopic(name,
+						properties.getExtension().getPrefix(), partitionIndex);
+				topics.add(topic);
+			}
+		}
+		else {
+			topics.add(resourceManager.declareTopic(name,
+					properties.getExtension().getPrefix(), null));
 		}
 
 		return topics;
 	}
 
 	@Override
-	protected MessageHandler createProducerMessageHandler(
-			Collection<TopicInfo> destinations,
+	protected MessageHandler createProducerMessageHandler(List<TopicInfo> destinations,
 			ExtendedProducerProperties<PubSubProducerProperties> producerProperties)
 			throws Exception {
-		return null;
+		PubSubMessageHandler handler = new PubSubMessageHandler(resourceManager,
+				producerProperties, destinations);
+		resourceManager.createRequiredMessageGroups(destinations, producerProperties);
+		return handler;
 	}
 
 	@Override
 	protected Subscription createConsumerDestinationIfNecessary(String name, String group,
 			ExtendedConsumerProperties<PubSubConsumerProperties> properties) {
-		return null;
+		boolean partitioned = properties.isPartitioned();
+		Integer partitionIndex = null;
+		if (partitioned) {
+			partitionIndex = properties.getInstanceIndex();
+		}
+		TopicInfo topicInfo = resourceManager.declareTopic(name,
+				properties.getExtension().getPrefix(), partitionIndex);
+		SubscriptionInfo subscription = resourceManager
+				.declareSubscription(topicInfo.name(), topicInfo.name(), group);
+		return resourceManager.createSubscription(subscription);
 	}
 
 	@Override
 	protected MessageProducer createConsumerEndpoint(String name, String group,
 			Subscription destination,
 			ExtendedConsumerProperties<PubSubConsumerProperties> properties) {
-		return null;
+
+		return new PubSubMessageListener(resourceManager, destination);
+
 	}
 }

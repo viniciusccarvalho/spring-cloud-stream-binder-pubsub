@@ -18,14 +18,18 @@
 package org.springframework.cloud.stream.binder.pubsub;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.pubsub.support.GroupedMessage;
+import org.springframework.cloud.stream.binder.pubsub.support.PubSubBinder;
+import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
 import com.google.cloud.pubsub.Subscription;
+import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.Topic;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.util.concurrent.JdkFutureAdapters;
@@ -51,17 +55,61 @@ public class PubSubResourceManager {
 	}
 
 	public static String applyPrefix(String prefix, String name) {
-		return prefix + name;
+		if (StringUtils.isEmpty(prefix))
+			return name;
+		return prefix + PubSubBinder.GROUP_INDEX_DELIMITER + name;
 	}
 
-	public void createRequiredMessageGroups(String name,
+	public void createRequiredMessageGroups(List<TopicInfo> destinations,
 			ExtendedProducerProperties<PubSubProducerProperties> producerProperties) {
-		boolean partitioned = producerProperties.isPartitioned();
+
+		for (String requiredGroupName : producerProperties.getRequiredGroups()) {
+			for (int i = 0; i < producerProperties.getPartitionCount(); i++) {
+				String name = destinations.get(i).name();
+				declareSubscription(destinations.get(i).name(), name, requiredGroupName);
+			}
+		}
 	}
 
-	public Subscription createSubscription(String name) {
+	/**
+	 * Declares a subscription and returns its SubscriptionInfo
+	 * @param topic
+	 * @param name
+	 * @return
+	 */
+	public SubscriptionInfo declareSubscription(String topic, String name, String group) {
+		SubscriptionInfo subscription = null;
+		try {
+			subscription = client.create(
+					SubscriptionInfo.of(topic, createSubscriptionName(name, group)));
+		}
+		catch (PubSubException e) {
+			if (e.reason().equals("ALREADY_EXISTS")) {
+				subscription = Subscription.of(topic, name);
+			}
+		}
+		return subscription;
+	}
 
-		return null;
+	public Subscription createSubscription(SubscriptionInfo subscriptionInfo) {
+		Subscription subscription = null;
+		try {
+			subscription = client.create(subscriptionInfo);
+		}
+		catch (PubSubException e) {
+			if (e.reason().equals("ALREADY_EXUSTS")) {
+				subscription = client.getSubscription(subscriptionInfo.name());
+			}
+			else {
+				throw e;
+			}
+		}
+		return subscription;
+	}
+
+	public PubSub.MessageConsumer createConsumer(SubscriptionInfo subscriptionInfo,
+			PubSub.MessageProcessor processor) {
+		return client.getSubscription(subscriptionInfo.name()).pullAsync(processor);
 	}
 
 	public TopicInfo declareTopic(String name, String prefix, Integer partitionIndex) {
@@ -79,9 +127,20 @@ public class PubSubResourceManager {
 		return topic;
 	}
 
-	public ListenableFuture<List<String>> publishMessages(GroupedMessage groupedMessage) {
+	public List<String> publishMessages(GroupedMessage groupedMessage) {
+		return client.publish(groupedMessage.getTopic(), groupedMessage.getMessages());
+	}
+
+	public ListenableFuture<List<String>> publishMessagesAsync(
+			GroupedMessage groupedMessage) {
 		return JdkFutureAdapters.listenInPoolThread(client
 				.publishAsync(groupedMessage.getTopic(), groupedMessage.getMessages()));
+	}
+
+	public void deleteTopics(List<TopicInfo> topics) {
+		for (TopicInfo t : topics) {
+			client.deleteTopic(t.name());
+		}
 	}
 
 	public String createTopicName(String name, String prefix, Integer partitionIndex) {
@@ -92,6 +151,23 @@ public class PubSubResourceManager {
 			buffer.append("-" + partitionIndex);
 		}
 		return buffer.toString();
+	}
+
+	private String createSubscriptionName(String name, String group) {
+		boolean anonymousConsumer = !StringUtils.hasText(group);
+		StringBuffer buffer = new StringBuffer();
+		if (anonymousConsumer) {
+			buffer.append(groupedName(name, UUID.randomUUID().toString()));
+		}
+		else {
+			buffer.append(groupedName(name, group));
+		}
+		return buffer.toString();
+	}
+
+	protected final String groupedName(String name, String group) {
+		return name + PubSubBinder.GROUP_INDEX_DELIMITER
+				+ (StringUtils.hasText(group) ? group : "default");
 	}
 
 }
