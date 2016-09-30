@@ -1,0 +1,62 @@
+= spring-cloud-stream-binder-pubsub
+Google Pubsub binder implementation
+
+== Requirements
+
+This project uses `google-cloud-java` latest gRPC PubSub client. In order to activate the
+autoconfig of the binder you need to provide a bean of type `com.google.cloud.pubsub.PubSub`
+
+[source,java]
+----
+
+public class SampleStreamApp {
+
+	public PubSub pubSub() throws Exception {
+		return PubSubOptions
+               		.builder()
+               		.authCredentials(AuthCredentials
+               		.createForJson(<YOUR_GOOGLE_CLOUD_JSON_CREDENTIALS>))
+               		.build()
+               		.service();
+	}
+
+}
+----
+
+== Limitations
+
+Due to an issue on how https://www.eclipse.org/jetty/documentation/9.3.x/alpn-chapter.html[ALPN] is loaded by netty
+This binder will not work if you are using Tomcat as the default servlet engine. Make sure you remove tomcat and use Jetty instead:
+
+[source,xml]
+----
+<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-stream</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-starter-tomcat</artifactId>
+				</exclusion>
+
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-jetty</artifactId>
+		</dependency>
+----
+
+== Testing
+
+Tests can run locally using the pubsub emulator. The test Suite will download the emulator
+start it and bind it to the test classes.
+
+You can also bind to google pubsub directly for testing by exposing the contents of your JSON authentication file using
+an environment variable: `GOOGLE_CLOUD_JSON_CRED`
+
+*Be aware* that the tests will wipe out any topic/subscription of the project you are running
+so make sure that you don't run your tests where you have topics/subscriptions being used somewhere else.
+
+
+
