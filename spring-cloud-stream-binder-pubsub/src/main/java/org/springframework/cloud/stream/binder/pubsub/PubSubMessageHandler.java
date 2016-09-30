@@ -100,7 +100,7 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 		this.processorCancellation = processor.groupBy(PubSubMessage::getTopic)
 				.flatMap(group -> group.map(pubSubMessage -> {
 					return pubSubMessage.getMessage();
-				}).buffer(1000, Duration.ofMillis(100)).map(messages -> {
+				}).buffer(producerProperties.getExtension().getBatchSize(), Duration.ofMillis(producerProperties.getExtension().getWindowSize())).map(messages -> {
 					return new GroupedMessage(group.key(), messages);
 				})).parallel(concurrency).runOn(Schedulers.elastic()).doOnNext(groupedMessage -> {
 					logger.info("Dispatching messages");

@@ -34,6 +34,8 @@ import com.google.cloud.pubsub.Topic;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.util.concurrent.JdkFutureAdapters;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Vinicius Carvalho
@@ -48,6 +50,7 @@ public class PubSubResourceManager {
 
 	private PubSub client;
 	private ObjectMapper mapper;
+	private Logger logger = LoggerFactory.getLogger(PubSubResourceManager.class);
 
 	public PubSubResourceManager(PubSub client) {
 		this.client = client;
@@ -81,11 +84,13 @@ public class PubSubResourceManager {
 		SubscriptionInfo subscription = null;
 		String subscriptionName = createSubscriptionName(name, group);
 		try {
+			logger.debug("Creating subscription: {} binding to topic : {}",subscriptionName,topic);
 			subscription = client.create(
 					SubscriptionInfo.of(topic, subscriptionName));
 		}
 		catch (PubSubException e) {
 			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
+				logger.warn("Subscription: {} already exists, reusing definition from remote server",subscriptionName);
 				subscription = Subscription.of(topic, subscriptionName);
 			}
 		}
@@ -117,10 +122,12 @@ public class PubSubResourceManager {
 		TopicInfo topic = null;
 		String topicName = createTopicName(name, prefix, partitionIndex);
 		try {
+			logger.debug("Creating topic: {} ",topic);
 			topic = client.create(TopicInfo.of(topicName));
 		}
 		catch (PubSubException e) {
 			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
+				logger.warn("Topic: {} already exists, reusing definition from remote server",topicName);
 				topic = Topic.of(topicName);
 			}
 		}
@@ -129,6 +136,7 @@ public class PubSubResourceManager {
 	}
 
 	public List<String> publishMessages(GroupedMessage groupedMessage) {
+		logger.debug("Publishing {} messages to topic: {}",groupedMessage.getMessages().size(),groupedMessage.getTopic());
 		return client.publish(groupedMessage.getTopic(), groupedMessage.getMessages());
 	}
 
@@ -166,7 +174,7 @@ public class PubSubResourceManager {
 		return buffer.toString();
 	}
 
-	protected final String groupedName(String name, String group) {
+	public final String groupedName(String name, String group) {
 		return name + PubSubBinder.GROUP_INDEX_DELIMITER
 				+ (StringUtils.hasText(group) ? group : "default");
 	}

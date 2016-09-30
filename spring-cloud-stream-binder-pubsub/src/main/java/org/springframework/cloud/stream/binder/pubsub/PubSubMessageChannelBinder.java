@@ -103,4 +103,8 @@ public class PubSubMessageChannelBinder extends
 		return new PubSubMessageListener(resourceManager, destination);
 
 	}
+
+	@Override
+	protected void afterUnbindConsumer(String destination, String group, ExtendedConsumerProperties<PubSubConsumerProperties> consumerProperties) {
+	}
 }

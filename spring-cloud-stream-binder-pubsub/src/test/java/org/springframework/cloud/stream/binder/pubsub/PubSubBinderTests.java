@@ -17,14 +17,27 @@
 
 package org.springframework.cloud.stream.binder.pubsub;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.UUID;
+
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 
+import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.PartitionCapableBinderTests;
+import org.springframework.cloud.stream.binder.ProducerProperties;
 import org.springframework.cloud.stream.binder.Spy;
 import org.springframework.cloud.stream.binder.test.junit.pubsub.PubSubTestSupport;
+import org.springframework.cloud.stream.config.BindingProperties;
+import org.springframework.integration.channel.DirectChannel;
+import org.springframework.integration.channel.QueueChannel;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.GenericMessage;
 
 /**
  * @author Vinicius Carvalho
@@ -51,6 +64,61 @@ public class PubSubBinderTests extends PartitionCapableBinderTests<PubSubTestBin
 		return CLASS_UNDER_TEST_NAME;
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	@Override
+	public void testAnonymousGroup() throws Exception {
+		PubSubTestBinder binder = getBinder();
+		BindingProperties producerBindingProperties = createProducerBindingProperties(createProducerProperties());
+		DirectChannel output = createBindableChannel("output", producerBindingProperties);
+		Binding<MessageChannel> producerBinding = binder.bindProducer("defaultGroup.0", output,
+				(ExtendedProducerProperties<PubSubProducerProperties>) producerBindingProperties.getProducer());
+
+		QueueChannel input1 = new QueueChannel();
+		Binding<MessageChannel> binding1 = binder.bindConsumer("defaultGroup.0", null, input1,
+				createConsumerProperties());
+
+		QueueChannel input2 = new QueueChannel();
+		Binding<MessageChannel> binding2 = binder.bindConsumer("defaultGroup.0", null, input2,
+				createConsumerProperties());
+
+		String testPayload1 = "foo-" + UUID.randomUUID().toString();
+		output.send(new GenericMessage<>(testPayload1.getBytes()));
+
+		Message<byte[]> receivedMessage1 = (Message<byte[]>) receive(input1);
+		assertThat(receivedMessage1).isNotNull();
+		assertThat(new String(receivedMessage1.getPayload())).isEqualTo(testPayload1);
+
+		Message<byte[]> receivedMessage2 = (Message<byte[]>) receive(input2);
+		assertThat(receivedMessage2).isNotNull();
+		assertThat(new String(receivedMessage2.getPayload())).isEqualTo(testPayload1);
+
+		binding2.unbind();
+		String testPayload2 = "foo-" + UUID.randomUUID().toString();
+		output.send(new GenericMessage<>(testPayload2.getBytes()));
+		//Give the binder a chance since send is async
+		Thread.sleep(2000);
+		binding2 = binder.bindConsumer("defaultGroup.0", null, input2, createConsumerProperties());
+
+		String testPayload3 = "foo-" + UUID.randomUUID().toString();
+		output.send(new GenericMessage<>(testPayload3.getBytes()));
+
+		receivedMessage1 = (Message<byte[]>) receive(input1);
+		assertThat(receivedMessage1).isNotNull();
+		assertThat(new String(receivedMessage1.getPayload())).isEqualTo(testPayload2);
+		receivedMessage1 = (Message<byte[]>) receive(input1);
+		assertThat(receivedMessage1).isNotNull();
+		assertThat(new String(receivedMessage1.getPayload())).isNotNull();
+
+		receivedMessage2 = (Message<byte[]>) receive(input2);
+		assertThat(receivedMessage2).isNotNull();
+		assertThat(new String(receivedMessage2.getPayload())).isEqualTo(testPayload3);
+
+		producerBinding.unbind();
+		binding1.unbind();
+		binding2.unbind();
+	}
+
 	@Override
 	protected PubSubTestBinder getBinder() throws Exception {
 		if(testBinder == null){
@@ -66,7 +134,8 @@ public class PubSubBinderTests extends PartitionCapableBinderTests<PubSubTestBin
 
 	@Override
 	protected ExtendedProducerProperties<PubSubProducerProperties> createProducerProperties() {
-		return new ExtendedProducerProperties<>(new PubSubProducerProperties());
+		PubSubProducerProperties properties = new PubSubProducerProperties();
+		return new ExtendedProducerProperties<>(properties);
 	}
 
 	@Override
