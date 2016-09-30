@@ -23,6 +23,18 @@ public class SampleStreamApp {
 }
 ----
 
+== Configuration
+
+The binder has a few properties you can tweak to your need:
+
+*Producer*
+
+----
+spring.cloud.stream.pubsub.bindings.<channelName>.producer.concurrency: How many threads the Reactor processor should use to dispatch messages to google pubsub. Default: num_cores * 3
+spring.cloud.stream.pubsub.bindings.<channelName>.producer.batchSize: How many messages should be grouped before sending. Default: 1000, minumum:1 maximum: 1000
+spring.cloud.stream.pubsub.bindings.<channelName>.producer.windowSize: Duration in millis that should wait before dispatch messages (or dispatch as soon as batchSize fills). Default: 100 minimum: 1
+----
+
 == Limitations
 
 Due to an issue on how https://www.eclipse.org/jetty/documentation/9.3.x/alpn-chapter.html[ALPN] is loaded by netty
