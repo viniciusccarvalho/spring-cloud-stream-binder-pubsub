@@ -26,6 +26,7 @@
 	</dependencyManagement>
 	<modules>
 		<module>spring-cloud-stream-binder-pubsub</module>
+		<module>spring-cloud-stream-binder-pubsub-test-support</module>
 	</modules>
 	<profiles>
 		<profile>
