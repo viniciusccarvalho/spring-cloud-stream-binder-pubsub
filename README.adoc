@@ -3,7 +3,7 @@ Google Pubsub binder implementation
 
 == Requirements
 
-This project uses `google-cloud-java` latest gRPC PubSub client. In order to activate the
+This project uses `https://github.com/GoogleCloudPlatform/google-cloud-java[google-cloud-java]` latest gRPC PubSub client. In order to activate the
 autoconfig of the binder you need to provide a bean of type `com.google.cloud.pubsub.PubSub`
 
 [source,java]
