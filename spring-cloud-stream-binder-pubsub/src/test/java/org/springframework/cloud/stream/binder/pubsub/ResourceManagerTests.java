@@ -28,6 +28,8 @@ import com.google.cloud.pubsub.Subscription;
 import com.google.cloud.pubsub.Topic;
 import com.google.cloud.pubsub.TopicInfo;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,6 +40,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.pubsub.config.PubSubBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.test.junit.pubsub.PubSubTestSupport;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -45,19 +48,25 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 /**
  * @author Vinicius Carvalho
  */
-@RunWith(SpringJUnit4ClassRunner.class)
-@SpringBootTest(classes = ResourceManagerTests.PubSubMessageHandlerTestApplication.class)
 public class ResourceManagerTests {
 
 
-	@Autowired
 	private PubSubResourceManager resourceManager;
 
-	@Autowired
 	private PubSub pubSub;
 
-	@Autowired
-	private PubSubExtendedBindingProperties properties;
+	@Rule
+	public PubSubTestSupport rule = new PubSubTestSupport();
+
+	@Before
+	public void setup(){
+		if(resourceManager == null){
+			resourceManager = new PubSubResourceManager(rule.getResource());
+		}
+		if(pubSub == null){
+			pubSub = rule.getResource();
+		}
+	}
 
 	@Test
 	public void createNonPartitionedSubscription() throws Exception {
@@ -110,24 +119,6 @@ public class ResourceManagerTests {
 
 
 
-	@SpringBootApplication
-	@EnableConfigurationProperties({PubSubBinderConfigurationProperties.class, PubSubExtendedBindingProperties.class})
-	public static class PubSubMessageHandlerTestApplication {
-		@Autowired
-		private PubSubExtendedBindingProperties pubSubExtendedBindingProperties;
 
-		@Bean
-		public PubSub pubSub(@Value("${google.cloud.json.cred}") String creds) throws Exception {
-
-			return PubSubOptions.builder().authCredentials(AuthCredentials.createForJson(new ByteArrayInputStream(creds.getBytes()))).build().service();
-		}
-
-		@Bean
-		public PubSubResourceManager pubSubResourceManager(PubSub pubSub){
-			return new PubSubResourceManager(pubSub);
-		}
-
-
-	}
 
 }

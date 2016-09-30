@@ -84,7 +84,7 @@ public class PubSubResourceManager {
 					SubscriptionInfo.of(topic, createSubscriptionName(name, group)));
 		}
 		catch (PubSubException e) {
-			if (e.reason().equals("ALREADY_EXISTS")) {
+			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
 				subscription = Subscription.of(topic, name);
 			}
 		}
@@ -97,7 +97,7 @@ public class PubSubResourceManager {
 			subscription = client.create(subscriptionInfo);
 		}
 		catch (PubSubException e) {
-			if (e.reason().equals("ALREADY_EXUSTS")) {
+			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
 				subscription = client.getSubscription(subscriptionInfo.name());
 			}
 			else {
@@ -119,7 +119,7 @@ public class PubSubResourceManager {
 			topic = client.create(TopicInfo.of(topicName));
 		}
 		catch (PubSubException e) {
-			if (e.reason().equals("ALREADY_EXISTS")) {
+			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
 				topic = Topic.of(topicName);
 			}
 		}

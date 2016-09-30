@@ -18,6 +18,7 @@
 package org.springframework.cloud.stream.binder.test.junit.pubsub;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
 import com.google.cloud.AuthCredentials;
 import com.google.cloud.pubsub.PubSub;
@@ -31,6 +32,8 @@ import org.springframework.util.StringUtils;
  * @author Vinicius Carvalho
  */
 public class PubSubTestSupport extends AbstractExternalResourceTestSupport<PubSub> {
+
+	private LocalPubsubHelper helper;
 
 	public PubSubTestSupport() {
 		super("PUBSUB");
@@ -48,10 +51,42 @@ public class PubSubTestSupport extends AbstractExternalResourceTestSupport<PubSu
 					.builder()
 					.authCredentials(AuthCredentials.createForJson(new ByteArrayInputStream(System.getenv("GOOGLE_CLOUD_JSON_ENV").getBytes()))).build().service();
 		}else{
-			LocalPubsubHelper helper = LocalPubsubHelper.create();
-			helper.start();
-			resource = helper.options().service();
+			resource = LocalPubSubHelperHolder.getInstance().getResource();
+		}
+	}
 
+	static class LocalPubSubHelperHolder {
+		private static LocalPubSubHelperHolder instance = null;
+
+		private LocalPubsubHelper helper;
+
+		protected LocalPubSubHelperHolder(){
+			this.helper = LocalPubsubHelper.create();
+			try {
+				helper.start();
+			}
+			catch (IOException e) {
+				e.printStackTrace();
+			}
+			catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+
+		public static LocalPubSubHelperHolder getInstance(){
+			if(instance == null){
+				synchronized (LocalPubSubHelperHolder.class){
+					if(instance == null){
+						instance = new LocalPubSubHelperHolder();
+					}
+				}
+			}
+			return instance;
+		}
+
+
+		public PubSub getResource(){
+			return helper.options().service();
 		}
 	}
 }

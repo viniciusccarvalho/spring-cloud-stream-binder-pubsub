@@ -37,19 +37,12 @@ public class PubSubMessageChannelBinder extends
 		AbstractMessageChannelBinder<ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>, Subscription, List<TopicInfo>> {
 
 
-	private PubSubBinderConfigurationProperties binderProperties;
-
-	private PubSubExtendedBindingProperties extendedProperties;
 
 	private PubSubResourceManager resourceManager;
 
 	public PubSubMessageChannelBinder(
-			PubSubBinderConfigurationProperties binderProperties,
-			PubSubExtendedBindingProperties extendedProperties,
 			PubSubResourceManager resourceManager) {
 		super(true, new String[0]);
-		this.binderProperties = binderProperties;
-		this.extendedProperties = extendedProperties;
 		this.resourceManager = resourceManager;
 	}
 

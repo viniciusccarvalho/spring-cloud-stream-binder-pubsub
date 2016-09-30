@@ -54,8 +54,7 @@ public class PubSubServiceAutoConfiguration {
 	@Bean
 	public PubSubMessageChannelBinder binder(PubSubResourceManager resourceManager)
 			throws Exception {
-		return new PubSubMessageChannelBinder(pubSubBinderConfigurationProperties,
-				pubSubExtendedBindingProperties, resourceManager);
+		return new PubSubMessageChannelBinder(resourceManager);
 	}
 
 }
