@@ -1,4 +1,4 @@
-= spring-cloud-stream-binder-pubsub
+= spring-cloud-stream-binder-pubsub (Alpha)
 Google Pubsub binder implementation
 
 == Requirements
