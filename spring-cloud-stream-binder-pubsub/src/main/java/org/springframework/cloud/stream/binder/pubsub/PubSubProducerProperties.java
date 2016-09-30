@@ -22,6 +22,15 @@ package org.springframework.cloud.stream.binder.pubsub;
  */
 public class PubSubProducerProperties {
 	private String prefix = "";
+	private Integer concurrency = null;
+
+	public Integer getConcurrency() {
+		return concurrency;
+	}
+
+	public void setConcurrency(Integer concurrency) {
+		this.concurrency = concurrency;
+	}
 
 	public String getPrefix() {
 		return prefix;

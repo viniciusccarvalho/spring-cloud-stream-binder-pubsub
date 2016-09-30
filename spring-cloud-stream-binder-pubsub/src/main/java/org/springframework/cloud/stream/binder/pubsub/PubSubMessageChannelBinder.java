@@ -76,6 +76,7 @@ public class PubSubMessageChannelBinder extends
 		PubSubMessageHandler handler = new PubSubMessageHandler(resourceManager,
 				producerProperties, destinations);
 		resourceManager.createRequiredMessageGroups(destinations, producerProperties);
+		handler.setConcurrency(producerProperties.getExtension().getConcurrency());
 		return handler;
 	}
 

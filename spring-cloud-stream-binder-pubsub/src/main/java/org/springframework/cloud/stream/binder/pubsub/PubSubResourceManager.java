@@ -79,13 +79,14 @@ public class PubSubResourceManager {
 	 */
 	public SubscriptionInfo declareSubscription(String topic, String name, String group) {
 		SubscriptionInfo subscription = null;
+		String subscriptionName = createSubscriptionName(name, group);
 		try {
 			subscription = client.create(
-					SubscriptionInfo.of(topic, createSubscriptionName(name, group)));
+					SubscriptionInfo.of(topic, subscriptionName));
 		}
 		catch (PubSubException e) {
 			if (e.reason().equals(PubSubBinder.ALREADY_EXISTS)) {
-				subscription = Subscription.of(topic, name);
+				subscription = Subscription.of(topic, subscriptionName);
 			}
 		}
 		return subscription;

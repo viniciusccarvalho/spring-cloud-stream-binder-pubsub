@@ -34,7 +34,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  */
 public class PubSubTestBinder extends AbstractTestBinder<PubSubMessageChannelBinder, ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>> {
 
+
+	private PubSub pubSub;
+
 	public PubSubTestBinder(PubSub pubSub){
+		this.pubSub = pubSub;
 		PubSubMessageChannelBinder binder = new PubSubMessageChannelBinder(new PubSubResourceManager(pubSub));
 		GenericApplicationContext context = new GenericApplicationContext();
 		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
@@ -50,6 +54,13 @@ public class PubSubTestBinder extends AbstractTestBinder<PubSubMessageChannelBin
 
 	@Override
 	public void cleanup() {
-
+		pubSub.listSubscriptions().values().forEach(subscription -> {
+			System.out.println("Deleting subscription: " + subscription.name());
+			subscription.delete();
+		});
+		pubSub.listTopics().values().forEach(topic -> {
+			System.out.println("Deleting topic: " + topic.name());
+			topic.delete();
+		});
 	}
 }

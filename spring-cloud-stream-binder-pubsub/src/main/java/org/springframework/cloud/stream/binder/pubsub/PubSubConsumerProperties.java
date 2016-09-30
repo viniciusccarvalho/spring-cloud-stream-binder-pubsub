@@ -23,17 +23,9 @@ package org.springframework.cloud.stream.binder.pubsub;
 public class PubSubConsumerProperties {
 
 	private String prefix = "";
-	private Integer fetchSize = 1;
 	private Integer ackDeadlineSeconds = 10;
-	private boolean returnImmediately;
 
-	public boolean isReturnImmediately() {
-		return returnImmediately;
-	}
 
-	public void setReturnImmediately(boolean returnImmediately) {
-		this.returnImmediately = returnImmediately;
-	}
 
 	public String getPrefix() {
 		return prefix;
@@ -43,13 +35,6 @@ public class PubSubConsumerProperties {
 		this.prefix = prefix;
 	}
 
-	public Integer getFetchSize() {
-		return fetchSize;
-	}
-
-	public void setFetchSize(Integer fetchSize) {
-		this.fetchSize = fetchSize;
-	}
 
 	public Integer getAckDeadlineSeconds() {
 		return ackDeadlineSeconds;

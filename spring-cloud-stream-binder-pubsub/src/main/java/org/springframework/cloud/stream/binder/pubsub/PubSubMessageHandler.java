@@ -54,6 +54,7 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 	private ObjectMapper mapper;
 	private Cancellation processorCancellation;
 	private List<TopicInfo> topics;
+	private Integer concurrency;
 
 	private Logger logger = LoggerFactory.getLogger(PubSubMessageHandler.class);
 
@@ -92,15 +93,29 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 
 	@Override
 	public void start() {
+		if(this.concurrency == null){
+			// We are assuming Brian Goetz (http://www.ibm.com/developerworks/java/library/j-jtp0730/index.html) cores * 1 + (1 + wait/service) and that http wait is taking 2x more than service
+			this.concurrency = Runtime.getRuntime().availableProcessors() * 3;
+		}
 		this.processorCancellation = processor.groupBy(PubSubMessage::getTopic)
 				.flatMap(group -> group.map(pubSubMessage -> {
 					return pubSubMessage.getMessage();
 				}).buffer(1000, Duration.ofMillis(100)).map(messages -> {
 					return new GroupedMessage(group.key(), messages);
-				})).parallel(8).runOn(Schedulers.elastic()).doOnNext(groupedMessage -> {
+				})).parallel(concurrency).runOn(Schedulers.elastic()).doOnNext(groupedMessage -> {
 					logger.info("Dispatching messages");
 					resourceManager.publishMessages(groupedMessage);
 				}).sequential().publishOn(Schedulers.elastic()).subscribe();
+	}
+
+	public Integer getConcurrency() {
+		return concurrency;
+	}
+
+	public void setConcurrency(Integer concurrency) {
+		if(concurrency != null && concurrency > 0){
+			this.concurrency = Math.min(8*Runtime.getRuntime().availableProcessors(),concurrency);
+		}
 	}
 
 	@Override

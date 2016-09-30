@@ -43,7 +43,7 @@ public class PubSubBinderTests extends PartitionCapableBinderTests<PubSubTestBin
 
 	@Before
 	public void setup(){
-		this.timeoutMultiplier = 2;
+		this.timeoutMultiplier = 15;
 	}
 
 	@Override

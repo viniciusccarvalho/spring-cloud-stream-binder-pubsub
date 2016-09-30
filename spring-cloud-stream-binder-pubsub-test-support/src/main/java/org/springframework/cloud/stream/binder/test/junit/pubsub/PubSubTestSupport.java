@@ -46,10 +46,10 @@ public class PubSubTestSupport extends AbstractExternalResourceTestSupport<PubSu
 
 	@Override
 	protected void obtainResource() throws Exception {
-		if(StringUtils.hasText(System.getenv("GOOGLE_CLOUD_JSON_ENV"))){
+		if(StringUtils.hasText(System.getenv("GOOGLE_CLOUD_JSON_CRED"))){
 			resource = PubSubOptions
 					.builder()
-					.authCredentials(AuthCredentials.createForJson(new ByteArrayInputStream(System.getenv("GOOGLE_CLOUD_JSON_ENV").getBytes()))).build().service();
+					.authCredentials(AuthCredentials.createForJson(new ByteArrayInputStream(System.getenv("GOOGLE_CLOUD_JSON_CRED").getBytes()))).build().service();
 		}else{
 			resource = LocalPubSubHelperHolder.getInstance().getResource();
 		}
