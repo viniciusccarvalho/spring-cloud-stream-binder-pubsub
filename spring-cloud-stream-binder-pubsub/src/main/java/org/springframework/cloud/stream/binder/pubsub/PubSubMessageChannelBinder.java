@@ -73,10 +73,19 @@ public class PubSubMessageChannelBinder extends
 	protected MessageHandler createProducerMessageHandler(List<TopicInfo> destinations,
 			ExtendedProducerProperties<PubSubProducerProperties> producerProperties)
 			throws Exception {
-		PubSubMessageHandler handler = new PubSubMessageHandler(resourceManager,
-				producerProperties, destinations);
+
+		PubSubMessageHandler handler = null;
+		if(producerProperties.getExtension().isBatchEnabled()){
+			handler = new BatchingPubSubMessageHandler(resourceManager,
+					producerProperties, destinations);
+			((BatchingPubSubMessageHandler)handler).setConcurrency(producerProperties.getExtension().getConcurrency());
+		}else{
+			handler = new SimplePubSubMessageHandler(resourceManager,producerProperties,destinations);
+		}
+
+
 		resourceManager.createRequiredMessageGroups(destinations, producerProperties);
-		handler.setConcurrency(producerProperties.getExtension().getConcurrency());
+
 		return handler;
 	}
 

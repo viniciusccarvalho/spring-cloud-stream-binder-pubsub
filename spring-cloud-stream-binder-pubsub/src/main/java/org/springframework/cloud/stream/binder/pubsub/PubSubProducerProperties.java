@@ -25,6 +25,15 @@ public class PubSubProducerProperties {
 	private Integer concurrency = null;
 	private Integer batchSize = 1000;
 	private Integer windowSize = 100;
+	private boolean batchEnabled = true;
+
+	public boolean isBatchEnabled() {
+		return batchEnabled;
+	}
+
+	public void setBatchEnabled(boolean batchEnabled) {
+		this.batchEnabled = batchEnabled;
+	}
 
 	public Integer getBatchSize() {
 		return batchSize;

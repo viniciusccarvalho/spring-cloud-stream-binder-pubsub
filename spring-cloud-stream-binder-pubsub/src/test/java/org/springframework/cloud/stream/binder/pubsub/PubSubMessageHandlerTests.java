@@ -71,7 +71,7 @@ public class PubSubMessageHandlerTests {
 		List<TopicInfo> topics = new ArrayList<>();
 		topics.add(resourceManager.declareTopic(baseTopicName,"",null));
 		SubscriptionInfo subscriptionInfo = resourceManager.declareSubscription(topics.get(0).name(),"test-subscription","");
-		PubSubMessageHandler messageHandler = new PubSubMessageHandler(resourceManager,extendedProducerProperties,topics);
+		PubSubMessageHandler messageHandler = new BatchingPubSubMessageHandler(resourceManager,extendedProducerProperties,topics);
 		messageHandler.start();
 		resourceManager.createConsumer(subscriptionInfo, message -> {
 			latch.countDown();

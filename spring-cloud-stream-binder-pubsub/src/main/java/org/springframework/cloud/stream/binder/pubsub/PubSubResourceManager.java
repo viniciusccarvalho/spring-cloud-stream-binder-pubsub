@@ -23,9 +23,11 @@ import java.util.UUID;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.pubsub.support.GroupedMessage;
 import org.springframework.cloud.stream.binder.pubsub.support.PubSubBinder;
+import org.springframework.cloud.stream.binder.pubsub.support.PubSubMessage;
 import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.pubsub.Message;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
 import com.google.cloud.pubsub.Subscription;
@@ -133,6 +135,10 @@ public class PubSubResourceManager {
 		}
 
 		return topic;
+	}
+
+	public String publishMessage(PubSubMessage pubSubMessage){
+		return client.publish(pubSubMessage.getTopic(), pubSubMessage.getMessage());
 	}
 
 	public List<String> publishMessages(GroupedMessage groupedMessage) {

@@ -30,9 +30,11 @@ The binder has a few properties you can tweak to your need:
 *Producer*
 
 ----
-spring.cloud.stream.pubsub.bindings.<channelName>.producer.concurrency: How many threads the Reactor processor should use to dispatch messages to google pubsub. Default: num_cores * 3
-spring.cloud.stream.pubsub.bindings.<channelName>.producer.batchSize: How many messages should be grouped before sending. Default: 1000, minumum:1 maximum: 1000
-spring.cloud.stream.pubsub.bindings.<channelName>.producer.windowSize: Duration in millis that should wait before dispatch messages (or dispatch as soon as batchSize fills). Default: 100 minimum: 1
+spring.cloud.stream.pubsub.bindings.<channelName>.producer.
+ - concurrency: How many threads the Reactor processor should use to dispatch messages to google pubsub. Default: num_cores * 3
+ - batchSize: How many messages should be grouped before sending. Default: 1000, minumum:1 maximum: 1000
+ - windowSize: Duration in millis that should wait before dispatch messages (or dispatch as soon as batchSize fills). Default: 100 minimum: 1
+ - batchEnabled: Toggle batch processing. Default: true
 ----
 
 == Limitations
@@ -58,6 +60,16 @@ This binder will not work if you are using Tomcat as the default servlet engine.
 			<artifactId>spring-boot-starter-jetty</artifactId>
 		</dependency>
 ----
+
+== A note on batching
+
+There are many evidences out there of pubsub performance. But as the Spotify reports on their blog https://labs.spotify.com/2016/03/03/spotifys-event-delivery-the-road-to-the-cloud-part-ii/[blog]
+
+latency for single message processing can be quite high. Our experiments show an average of 50ms per operation from external servers or ~30ms from google servers. Because of this, the protocol thrives on
+batch messaging.
+
+It comes with a price, batch processing means you can't handle individual transactional failure. We support both modes, and highly recommend the batching mode, with some sort of recovery associated if you
+can embrace eventually consistency. 
 
 == Testing
 

@@ -46,17 +46,18 @@ import reactor.core.scheduler.Schedulers;
 /**
  * @author Vinicius Carvalho
  */
-public class PubSubMessageHandler extends AbstractMessageHandler implements Lifecycle {
+public abstract class PubSubMessageHandler extends AbstractMessageHandler implements Lifecycle {
 
-	private PubSubResourceManager resourceManager;
-	private ExtendedProducerProperties<PubSubProducerProperties> producerProperties;
-	private WorkQueueProcessor<PubSubMessage> processor;
-	private ObjectMapper mapper;
-	private Cancellation processorCancellation;
-	private List<TopicInfo> topics;
-	private Integer concurrency;
+	protected PubSubResourceManager resourceManager;
+	protected ExtendedProducerProperties<PubSubProducerProperties> producerProperties;
 
-	private Logger logger = LoggerFactory.getLogger(PubSubMessageHandler.class);
+	protected ObjectMapper mapper;
+
+	protected List<TopicInfo> topics;
+
+	protected Logger logger = LoggerFactory.getLogger(this.getClass().getName());
+
+	protected volatile boolean running = false;
 
 	public PubSubMessageHandler(PubSubResourceManager resourceManager,
 			ExtendedProducerProperties<PubSubProducerProperties> producerProperties,
@@ -64,13 +65,11 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 		this.resourceManager = resourceManager;
 		this.producerProperties = producerProperties;
 		this.mapper = new ObjectMapper();
-		this.processor = WorkQueueProcessor.share(true);
 		this.topics = topics;
-
 	}
 
-	@Override
-	protected void handleMessageInternal(Message<?> message) throws Exception {
+
+	protected PubSubMessage convert(Message<?> message) throws Exception {
 		String encodedHeaders = encodeHeaders(message.getHeaders());
 		String topic = producerProperties.isPartitioned() ? topics
 				.get((Integer) message.getHeaders().get(BinderHeaders.PARTITION_HEADER))
@@ -80,10 +79,10 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 						.builder(ByteArray.copyFrom((byte[]) message.getPayload()))
 						.addAttribute(PubSubBinder.SCST_HEADERS, encodedHeaders).build(),
 				topic);
-		processor.onNext(pubSubMessage);
+		return pubSubMessage;
 	}
 
-	private String encodeHeaders(MessageHeaders headers) throws Exception {
+	protected String encodeHeaders(MessageHeaders headers) throws Exception {
 		Map<String, Object> rawHeaders = new HashMap<>();
 		for (String key : headers.keySet()) {
 			rawHeaders.put(key, headers.get(key));
@@ -91,40 +90,4 @@ public class PubSubMessageHandler extends AbstractMessageHandler implements Life
 		return mapper.writeValueAsString(rawHeaders);
 	}
 
-	@Override
-	public void start() {
-		if(this.concurrency == null){
-			// We are assuming Brian Goetz (http://www.ibm.com/developerworks/java/library/j-jtp0730/index.html) cores * 1 + (1 + wait/service) and that http wait is taking 2x more than service
-			this.concurrency = Runtime.getRuntime().availableProcessors() * 3;
-		}
-		this.processorCancellation = processor.groupBy(PubSubMessage::getTopic)
-				.flatMap(group -> group.map(pubSubMessage -> {
-					return pubSubMessage.getMessage();
-				}).buffer(producerProperties.getExtension().getBatchSize(), Duration.ofMillis(producerProperties.getExtension().getWindowSize())).map(messages -> {
-					return new GroupedMessage(group.key(), messages);
-				})).parallel(concurrency).runOn(Schedulers.elastic()).doOnNext(groupedMessage -> {
-					logger.info("Dispatching messages");
-					resourceManager.publishMessages(groupedMessage);
-				}).sequential().publishOn(Schedulers.elastic()).subscribe();
-	}
-
-	public Integer getConcurrency() {
-		return concurrency;
-	}
-
-	public void setConcurrency(Integer concurrency) {
-		if(concurrency != null && concurrency > 0){
-			this.concurrency = Math.min(8*Runtime.getRuntime().availableProcessors(),concurrency);
-		}
-	}
-
-	@Override
-	public void stop() {
-		processorCancellation.dispose();
-	}
-
-	@Override
-	public boolean isRunning() {
-		return false;
-	}
 }
