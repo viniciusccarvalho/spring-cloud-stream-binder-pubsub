@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import com.google.cloud.AuthCredentials;
+import com.google.cloud.RetryParams;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
 import com.google.cloud.pubsub.testing.LocalPubsubHelper;

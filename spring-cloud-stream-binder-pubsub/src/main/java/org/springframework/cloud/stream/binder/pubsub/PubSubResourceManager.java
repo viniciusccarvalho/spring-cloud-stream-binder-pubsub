@@ -122,6 +122,7 @@ public class PubSubResourceManager {
 
 	public TopicInfo declareTopic(String name, String prefix, Integer partitionIndex) {
 		TopicInfo topic = null;
+
 		String topicName = createTopicName(name, prefix, partitionIndex);
 		try {
 			logger.debug("Creating topic: {} ",topic);
