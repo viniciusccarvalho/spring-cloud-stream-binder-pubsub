@@ -74,8 +74,8 @@ public class PubSubMessageHandlerTests {
 		PubSubMessageHandler messageHandler = new BatchingPubSubMessageHandler(resourceManager,extendedProducerProperties,topics);
 		messageHandler.start();
 		resourceManager.createConsumer(subscriptionInfo, message -> {
-			latch.countDown();
 			counter.incrementAndGet();
+			latch.countDown();
 		});
 		for(int j=0;j<messageCount;j++){
 			String payload = "foo-"+j;
