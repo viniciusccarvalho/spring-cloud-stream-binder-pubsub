@@ -1,5 +1,5 @@
 = spring-cloud-stream-binder-pubsub (Alpha)
-Google Pubsub binder implementation
+Google Pubsub binder implementation image:https://travis-ci.org/viniciusccarvalho/schema-evolution-samples.svg?branch=master[]
 
 == Requirements
 
@@ -69,7 +69,7 @@ latency for single message processing can be quite high. Our experiments show an
 batch messaging.
 
 It comes with a price, batch processing means you can't handle individual transactional failure. We support both modes, and highly recommend the batching mode, with some sort of recovery associated if you
-can embrace eventually consistency. 
+can embrace eventually consistency.
 
 == Testing
 
