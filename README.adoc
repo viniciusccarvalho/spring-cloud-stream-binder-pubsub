@@ -1,5 +1,5 @@
-= spring-cloud-stream-binder-pubsub (Alpha)
-Google Pubsub binder implementation image:https://travis-ci.org/viniciusccarvalho/schema-evolution-samples.svg?branch=master[]
+= spring-cloud-stream-binder-pubsub (Alpha) image:https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub.svg?branch=master["Build Status", link="https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub"]
+Google Pubsub binder implementation
 
 == Requirements
 
