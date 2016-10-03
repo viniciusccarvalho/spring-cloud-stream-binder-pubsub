@@ -1,4 +1,4 @@
-= spring-cloud-stream-binder-pubsub (Alpha) image:https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub.svg?branch=master["Build Status", link="https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub"]
+= spring-cloud-stream-binder-pubsub (Alpha) image:https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub.svg?branch=master["Build Status", link="https://travis-ci.org/viniciusccarvalho/spring-cloud-stream-binder-pubsub"] image:https://codecov.io/gh/viniciusccarvalho/spring-cloud-stream-binder-pubsub/branch/master/graph/badge.svg["codecov]
 Google Pubsub binder implementation
 
 == Requirements
