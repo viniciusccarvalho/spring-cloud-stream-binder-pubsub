@@ -28,6 +28,7 @@ import org.springframework.cloud.stream.binder.pubsub.PubSubMessageChannelBinder
 import org.springframework.cloud.stream.binder.pubsub.PubSubResourceManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.codec.Codec;
 
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
@@ -41,6 +42,10 @@ import com.google.cloud.pubsub.PubSubOptions;
 @EnableConfigurationProperties({ PubSubBinderConfigurationProperties.class,
 		PubSubExtendedBindingProperties.class })
 public class PubSubServiceAutoConfiguration {
+
+	@Autowired
+	private Codec codec;
+
 
 	@Autowired
 	private PubSubExtendedBindingProperties pubSubExtendedBindingProperties;
@@ -62,7 +67,10 @@ public class PubSubServiceAutoConfiguration {
 	@Bean
 	public PubSubMessageChannelBinder binder(PubSubResourceManager resourceManager)
 			throws Exception {
-		return new PubSubMessageChannelBinder(resourceManager);
+		PubSubMessageChannelBinder binder = new PubSubMessageChannelBinder(resourceManager);
+		binder.setExtendedBindingProperties(this.pubSubExtendedBindingProperties);
+		binder.setCodec(codec);
+		return binder;
 	}
 
 }

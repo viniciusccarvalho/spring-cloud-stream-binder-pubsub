@@ -22,8 +22,9 @@ import java.util.List;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
-import org.springframework.cloud.stream.binder.pubsub.config.PubSubBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.ExtendedPropertiesBinder;
 import org.springframework.integration.core.MessageProducer;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
 
 import com.google.cloud.pubsub.Subscription;
@@ -34,14 +35,15 @@ import com.google.cloud.pubsub.TopicInfo;
  * @author Vinicius Carvalho
  */
 public class PubSubMessageChannelBinder extends
-		AbstractMessageChannelBinder<ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>, Subscription, List<TopicInfo>> {
+		AbstractMessageChannelBinder<ExtendedConsumerProperties<PubSubConsumerProperties>, ExtendedProducerProperties<PubSubProducerProperties>, Subscription, List<TopicInfo>>
+		implements
+		ExtendedPropertiesBinder<MessageChannel, PubSubConsumerProperties, PubSubProducerProperties> {
 
-
+	private PubSubExtendedBindingProperties extendedBindingProperties = new PubSubExtendedBindingProperties();
 
 	private PubSubResourceManager resourceManager;
 
-	public PubSubMessageChannelBinder(
-			PubSubResourceManager resourceManager) {
+	public PubSubMessageChannelBinder(PubSubResourceManager resourceManager) {
 		super(true, new String[0]);
 		this.resourceManager = resourceManager;
 	}
@@ -75,14 +77,16 @@ public class PubSubMessageChannelBinder extends
 			throws Exception {
 
 		PubSubMessageHandler handler = null;
-		if(producerProperties.getExtension().isBatchEnabled()){
+		if (producerProperties.getExtension().isBatchEnabled()) {
 			handler = new BatchingPubSubMessageHandler(resourceManager,
 					producerProperties, destinations);
-			((BatchingPubSubMessageHandler)handler).setConcurrency(producerProperties.getExtension().getConcurrency());
-		}else{
-			handler = new SimplePubSubMessageHandler(resourceManager,producerProperties,destinations);
+			((BatchingPubSubMessageHandler) handler)
+					.setConcurrency(producerProperties.getExtension().getConcurrency());
 		}
-
+		else {
+			handler = new SimplePubSubMessageHandler(resourceManager, producerProperties,
+					destinations);
+		}
 
 		resourceManager.createRequiredMessageGroups(destinations, producerProperties);
 
@@ -114,6 +118,21 @@ public class PubSubMessageChannelBinder extends
 	}
 
 	@Override
-	protected void afterUnbindConsumer(String destination, String group, ExtendedConsumerProperties<PubSubConsumerProperties> consumerProperties) {
+	protected void afterUnbindConsumer(String destination, String group,
+			ExtendedConsumerProperties<PubSubConsumerProperties> consumerProperties) {
+	}
+
+	@Override
+	public PubSubConsumerProperties getExtendedConsumerProperties(String channelName) {
+		return this.extendedBindingProperties.getExtendedConsumerProperties(channelName);
+	}
+
+	@Override
+	public PubSubProducerProperties getExtendedProducerProperties(String channelName) {
+		return this.extendedBindingProperties.getExtendedProducerProperties(channelName);
+	}
+
+	public void setExtendedBindingProperties(PubSubExtendedBindingProperties extendedBindingProperties) {
+		this.extendedBindingProperties = extendedBindingProperties;
 	}
 }
